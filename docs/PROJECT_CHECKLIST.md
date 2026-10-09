@@ -50,22 +50,30 @@
   - [x] Implemented `scan_for_prompt_injection()` detecting jailbreak patterns.
   - [x] Implemented `detect_unicode_anomalies()` and `strip_adversarial_unicode()` for zero-width spaces/BiDi.
   - [x] Implemented `isolate_for_llm_consumption()` wrapping extracted text in inert XML boundaries.
-- [x] **Documentation & Contracts**:
+- [x] **Sanitization & Document Reconstruction (`src/sanitization/docx_reconstructor.py`)**:
+  - [x] Native DOCX text replacement across paragraphs, table cells, and text boxes preserving fonts/styles.
+  - [x] Embedded screenshot image swapper for OpenXML relationship parts.
+- [x] **Post-Redaction Document Integrity Guard (`src/security/integrity.py`)**:
+  - [x] Automated open-and-read parse check across DOCX, PPTX, and PDF to fail-closed on corrupt output files.
+- [x] **Master Documentation & Repository Setup**:
+  - [x] Authored repository `README.md` with complete setup and test guides.
+  - [x] Authored `docs/architecture.md` with master system architecture, data flow, and fail-closed state table.
   - [x] Authored `docs/developer_1_ingestion_architecture.md`.
+  - [x] Authored `docs/developer_2_ocr_vision_architecture.md`.
+  - [x] Authored `docs/developer_3_pii_detection_architecture.md`.
+  - [x] Authored `docs/developer_4_policy_verifier_architecture.md`.
+  - [x] Authored `docs/developer_5_evaluation_ui_architecture.md`.
   - [x] Authored `docs/TEAM_INTEGRATION_GUIDE.md`.
   - [x] Authored `docs/PROJECT_CHECKLIST.md`.
 - [x] **Unit Testing**:
-  - [x] Built `tests/unit/test_ingestion.py` and `tests/unit/test_security_limits.py` (15/15 passing).
+  - [x] Built `tests/unit/test_ingestion.py`, `tests/unit/test_security_limits.py`, and `tests/unit/test_reconstruction.py` (**19/19 passing**).
 
-### ⏳ Developer 1 Remaining Deliverables (Roadmap Weeks 2 & 3)
-- [ ] **Day 8 (Week 2):** Implement document structure retention trackers (heading and layout metadata).
-- [ ] **Day 9 (Week 2):** Implement native DOCX text replacement and reconstructed XML packing.
-- [ ] **Day 10 (Week 2):** Rebuild sanitized DOCX containing redacted replacement images.
-- [ ] **Day 11 (Week 2):** Sanitized file open-and-read integrity check (fail-closed if corrupted).
-- [ ] **Day 14 (Week 2):** Week 2 integration review & end-to-end extraction-to-redaction smoke test.
-- [ ] **Day 15 (Week 3):** Stress test file ingestion with large documents and edge archives.
+### ⏳ Developer 1 Remaining Deliverables (Roadmap Integration)
+- [ ] **Day 8 (Week 2):** Implement document structure retention trackers (heading hierarchy and layout metadata).
+- [ ] **Day 14 (Week 2):** Week 2 integration review & end-to-end extraction-to-redaction smoke test with Dev 2–4.
+- [ ] **Day 15 (Week 3):** Stress test file ingestion with high concurrency and edge archives.
 - [ ] **Day 17 (Week 3):** Adversarial input validation against corrupt zips, XML bombs, and path traversals.
-- [ ] **Day 21 (Week 3):** Complete `docs/architecture.md` and repository setup instructions in `README.md`.
+- [ ] **Day 19 (Week 3):** Connect document upload and status callbacks to Streamlit UI (`app.py`).
 
 ---
 

@@ -24,7 +24,7 @@ def banner(title):
     print("=" * 80)
 
 
-def test_file(file_path):
+def check_file(file_path):
     filename = os.path.basename(file_path)
     banner(f"TESTING ARTIFACT: {filename}")
     
