@@ -1,0 +1,32 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs & Temp files
+*.log
+tmp/
+temp/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Output artifacts
+data/outputs/
+reports/logs/
+
+# Raw test documents
+test docs/
+test docs
