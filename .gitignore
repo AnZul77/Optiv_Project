@@ -1,0 +1,39 @@
+# Byte-compiled
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Distribution
+*.egg-info/
+dist/
+build/
+
+# Data outputs (sanitized docs, audit trails)
+data/outputs/
+reports/logs/
+
+# spaCy models (downloaded separately)
+en_core_web_lg/
+en_core_web_sm/
+
+# Environment variables
+.env
+.env.local
