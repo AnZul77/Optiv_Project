@@ -138,3 +138,50 @@ class TestEndToEndPipeline:
 
         ssn_entity = [e for e in result.entities if e.entity_type == EntityType.SSN][0]
         assert ssn_entity.validator_result == ValidatorStatus.PASS
+
+    def test_canonical_document_direct_integration(self, full_pipeline):
+        """Test DetectionPipeline.run_document() on Person 1's CanonicalDocument."""
+        from src.schema.document import CanonicalDocument, ExtractedPage, ExtractedBlock, ExtractedTable, TableCell
+
+        doc = CanonicalDocument(
+            doc_id="test_doc_001",
+            source_path="report.pdf",
+            filename="report.pdf",
+            file_type=".pdf",
+            pages=1,
+            pages_dict={
+                1: ExtractedPage(
+                    page_num=1,
+                    blocks=[
+                        ExtractedBlock(
+                            block_id="b1",
+                            page=1,
+                            block_type="paragraph",
+                            text="Primary contact: lead@optiv.com, SSN: 123-45-6789.",
+                        )
+                    ],
+                    tables=[
+                        ExtractedTable(
+                            table_index=1,
+                            page=1,
+                            headers=["Account Type", "PAN Number"],
+                            rows=[
+                                [
+                                    TableCell(row_idx=1, col_idx=1, text="Savings"),
+                                    TableCell(row_idx=1, col_idx=2, text="ABCPE1234F", header_name="PAN Number"),
+                                ]
+                            ]
+                        )
+                    ]
+                )
+            }
+        )
+
+        processed_doc = full_pipeline.run_document(doc)
+        assert len(processed_doc.entities) >= 3
+        types = {ann.type for ann in processed_doc.entities}
+        assert "EMAIL" in types
+        assert "SSN" in types
+        assert "PAN" in types
+        assert "detection_summary" in processed_doc.metadata
+

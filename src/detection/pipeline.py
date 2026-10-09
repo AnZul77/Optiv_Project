@@ -22,10 +22,11 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from src.schema.entities import (
     ContentBlock,
+    TableContext,
     DetectionResult,
     DetectionMetadata,
     PIIEntity,
@@ -243,3 +244,105 @@ class DetectionPipeline:
         )
 
         return result
+
+    def run_document(self, doc: Any) -> Any:
+        """
+        Run detection pipeline directly on a Person 1 CanonicalDocument.
+
+        Extracts ContentBlocks from all document pages (blocks, tables, OCR text),
+        runs multi-layer detection, converts detected entities into canonical
+        EntityAnnotation instances, and attaches them to `doc.entities`.
+
+        Args:
+            doc: CanonicalDocument instance from Person 1 (Ingestion).
+
+        Returns:
+            The same CanonicalDocument with populated `entities` and detection metadata.
+        """
+        from src.schema.document import EntityAnnotation
+
+        blocks: List[ContentBlock] = []
+
+        # 1. Convert pages and blocks to ContentBlocks
+        for page_num, page in doc.pages_dict.items():
+            # Add discrete blocks
+            for block in getattr(page, "blocks", []):
+                blocks.append(
+                    ContentBlock(
+                        text=block.text,
+                        block_id=block.block_id,
+                        page=page_num,
+                        bbox=block.bbox,
+                        section_context=block.metadata.get("section", "") if hasattr(block, "metadata") else "",
+                    )
+                )
+
+            # Add table cells with inherited column headers
+            for table in getattr(page, "tables", []):
+                for row in getattr(table, "rows", []):
+                    for cell in row:
+                        blocks.append(
+                            ContentBlock(
+                                text=cell.text,
+                                block_id=f"tbl_{getattr(table, 'table_index', 0)}_r{cell.row_idx}_c{cell.col_idx}",
+                                page=page_num,
+                                bbox=cell.bbox,
+                                table_context=TableContext(
+                                    column_headers=getattr(table, "headers", []),
+                                    header_name=getattr(cell, "header_name", ""),
+                                    row_index=cell.row_idx,
+                                    col_index=cell.col_idx,
+                                    table_id=str(getattr(table, "table_index", "")),
+                                ),
+                            )
+                        )
+
+            # If page has native text or OCR text without blocks, add whole page block
+            if not getattr(page, "blocks", []) and getattr(page, "combined_text", ""):
+                blocks.append(
+                    ContentBlock(
+                        text=page.combined_text,
+                        block_id=f"page_{page_num}_combined",
+                        page=page_num,
+                    )
+                )
+
+        # 2. Run detection pipeline
+        det_result = self.run(
+            blocks=blocks,
+            source_file=getattr(doc, "filename", ""),
+            document_id=getattr(doc, "doc_id", ""),
+        )
+
+        # 3. Convert PIIEntity objects to EntityAnnotation objects
+        annotations: List[EntityAnnotation] = []
+        for entity in det_result.entities:
+            ann = EntityAnnotation(
+                entity_id=entity.entity_id,
+                type=entity.entity_type.value,
+                source=entity.source.value if hasattr(entity.source, "value") else str(entity.source),
+                value_hash=entity.value_hash,
+                page=entity.page,
+                bbox=entity.bbox or [0.0, 0.0, 0.0, 0.0],
+                text_start=entity.text_start,
+                text_end=entity.text_end,
+                confidence=entity.confidence,
+                risk=entity.risk_level.value if hasattr(entity.risk_level, "value") else str(entity.risk_level),
+                action=entity.action.value if hasattr(entity.action, "value") else str(entity.action),
+                context={
+                    "detection_layers": entity.detection_layers,
+                    "context_cues": entity.context_cues,
+                    "validator_result": entity.validator_result.value if hasattr(entity.validator_result, "value") else str(entity.validator_result),
+                },
+            )
+            annotations.append(ann)
+
+        doc.entities = annotations
+        if hasattr(doc, "metadata") and isinstance(doc.metadata, dict):
+            doc.metadata["detection_summary"] = {
+                "total_entities": det_result.total_entities,
+                "risk_summary": det_result.risk_summary,
+                "processing_time_ms": det_result.detection_metadata.processing_time_ms,
+            }
+
+        return doc
