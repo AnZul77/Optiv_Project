@@ -17,6 +17,10 @@ from .input_safety import (
     PROMPT_INJECTION_PATTERNS,
     DANGEROUS_UNICODE_CHARS,
 )
+from .integrity import (
+    DocumentIntegrityGuard,
+    IntegrityCheckResult,
+)
 
 __all__ = [
     "SecurityLimitsConfig",
@@ -29,4 +33,6 @@ __all__ = [
     "PromptSafetyReport",
     "PROMPT_INJECTION_PATTERNS",
     "DANGEROUS_UNICODE_CHARS",
+    "DocumentIntegrityGuard",
+    "IntegrityCheckResult",
 ]
