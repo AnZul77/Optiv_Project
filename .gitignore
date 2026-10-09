@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
 
 # Virtual environments
 venv/
@@ -16,7 +17,17 @@ env/
 *.swo
 *~
 
-# OS
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs & Temp files
+*.log
+tmp/
+temp/
+
+# OS specific
 .DS_Store
 Thumbs.db
 desktop.ini
@@ -37,3 +48,7 @@ en_core_web_sm/
 # Environment variables
 .env
 .env.local
+
+# Raw test documents
+test docs/
+test docs

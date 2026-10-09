@@ -2,9 +2,22 @@
 Schema Package
 ==============
 
-Canonical data models, enums, and risk specifications for the PII Security Firewall.
+Canonical document representation, structural extraction schemas,
+PII detection taxonomy, enums, risk specifications, and entity annotations.
 """
 
+from src.schema.document import (
+    CanonicalDocument,
+    ExtractedPage,
+    ExtractedBlock,
+    ExtractedImage,
+    ExtractedTable,
+    TableCell,
+    BoundingBox,
+    EntityAnnotation,
+    ExtractionResult,
+    PipelineMetadata,
+)
 from src.schema.entities import (
     EntityType,
     RiskLevel,
@@ -23,6 +36,18 @@ from src.schema.entities import (
 )
 
 __all__ = [
+    # Document representations (Person 1)
+    "CanonicalDocument",
+    "ExtractedPage",
+    "ExtractedBlock",
+    "ExtractedImage",
+    "ExtractedTable",
+    "TableCell",
+    "BoundingBox",
+    "EntityAnnotation",
+    "ExtractionResult",
+    "PipelineMetadata",
+    # PII Detection & Context representations (Person 3)
     "EntityType",
     "RiskLevel",
     "Action",
