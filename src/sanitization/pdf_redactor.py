@@ -55,18 +55,32 @@ def redact_scanned_pdf(
             boxes,
             padding=padding,
         )
-        sanitized_pages.append(sanitized.convert("RGB"))
+sanitized_pages.append(sanitized.convert("RGB"))
+first_page = sanitized_pages[0]
+remaining_pages = sanitized_pages[1:]
 
-    first_page, remaining_pages = sanitized_pages[0], sanitized_pages[1:]
-    first_page = sanitized_pages[0]
-    remaining_pages = sanitized_pages[1:]
     first_page.save(
-    str(destination),
-    format="PDF",
-    save_all=True,
-    append_images=remaining_pages,
-    resolution=dpi,
-)
+        str(destination),
+        format="PDF",
+        save_all=True,
+        append_images=remaining_pages,
+        resolution=dpi,
+    )
+    from pypdf import PdfReader, PdfWriter
+
+    reader = PdfReader(str(destination))
+    writer = PdfWriter()
+    writer.append_pages_from_reader(reader)
+    writer.add_metadata({
+        "/Title": "",
+        "/Author": "",
+        "/Subject": "",
+        "/Creator": "",
+        "/Producer": "",
+    })
+
+    with open(destination, "wb") as output_file:
+        writer.write(output_file)
 
 
     return destination
