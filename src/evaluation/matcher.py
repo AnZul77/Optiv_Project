@@ -86,6 +86,22 @@ def match_entities(predicted: List[EntityAnnotation], ground_truth: List[EntityA
                     gt_matched.add(i)
                     matched = True
                     break
+
+            # Fallback to Value Hash or Text Match when spatial coordinates are unavailable
+            elif pred.value_hash and gt.value_hash and pred.value_hash == gt.value_hash:
+                tp.append(pred)
+                gt_matched.add(i)
+                matched = True
+                break
+            elif hasattr(pred, "context") and hasattr(gt, "context"):
+                pred_raw = pred.context.get("raw_value", "")
+                gt_raw = gt.context.get("raw_value", "")
+                if pred_raw and gt_raw and (pred_raw.lower() in gt_raw.lower() or gt_raw.lower() in pred_raw.lower()):
+                    tp.append(pred)
+                    gt_matched.add(i)
+                    matched = True
+                    break
+
         
         if not matched:
             fp.append(pred)

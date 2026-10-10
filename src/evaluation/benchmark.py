@@ -1,10 +1,14 @@
 import os
+import sys
 import json
 import logging
 from typing import List, Dict, Any
 from pathlib import Path
 
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
 from src.schema.document import EntityAnnotation
+
 from src.evaluation.metrics import generate_report
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
