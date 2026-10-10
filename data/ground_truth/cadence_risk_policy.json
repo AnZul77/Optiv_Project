@@ -1,0 +1,55 @@
+{
+  "document_id": "cadence_risk_policy_pdf",
+  "filename": "Cadence_Group_Risk_Management_Policy__v6.0.pdf",
+  "description": "35-page scanned PDF. Page 22 has dense narrative prose PII (names, SSN, DOB, passports, PAN, home address).",
+  "ground_truth_entities": [
+    {
+      "type": "PERSON",
+      "page": 22,
+      "text_start": 0,
+      "text_end": 0,
+      "bbox": [120.5, 300.2, 210.1, 315.0],
+      "value_snippet": "Michael R. Henderson"
+    },
+    {
+      "type": "SSN",
+      "page": 22,
+      "text_start": 0,
+      "text_end": 0,
+      "bbox": [215.0, 300.2, 280.5, 315.0],
+      "value_snippet": "293-11-4829"
+    },
+    {
+      "type": "DOB",
+      "page": 22,
+      "text_start": 0,
+      "text_end": 0,
+      "bbox": [120.5, 320.0, 185.0, 335.0],
+      "value_snippet": "11/04/1978"
+    },
+    {
+      "type": "PASSPORT",
+      "page": 22,
+      "text_start": 0,
+      "text_end": 0,
+      "bbox": [120.5, 340.0, 195.0, 355.0],
+      "value_snippet": "C8839201"
+    },
+    {
+      "type": "PAN",
+      "page": 22,
+      "text_start": 0,
+      "text_end": 0,
+      "bbox": [120.5, 360.0, 195.0, 375.0],
+      "value_snippet": "ABCDE1234F"
+    },
+    {
+      "type": "ADDRESS",
+      "page": 22,
+      "text_start": 0,
+      "text_end": 0,
+      "bbox": [120.5, 380.0, 450.0, 395.0],
+      "value_snippet": "1842 Willow Tree Ln, Suite 400, Chicago, IL 60601"
+    }
+  ]
+}
