@@ -1,0 +1,39 @@
+{
+  "document_id": "cadence_tprm_training_docx",
+  "filename": "Cadence_TPRM_Training.docx",
+  "description": "~82 pages, ~38 embedded OneTrust screenshots, 16 tables, 4 text boxes. Embedded screenshot extraction, OCR on images, table header context resolution.",
+  "ground_truth_entities": [
+    {
+      "type": "EMAIL",
+      "page": 1,
+      "text_start": 412,
+      "text_end": 435,
+      "bbox": [0.0, 0.0, 0.0, 0.0],
+      "value_snippet": "sarah.jenkins@optiv.com"
+    },
+    {
+      "type": "PERSON",
+      "page": 1,
+      "text_start": 436,
+      "text_end": 449,
+      "bbox": [0.0, 0.0, 0.0, 0.0],
+      "value_snippet": "Sarah Jenkins"
+    },
+    {
+      "type": "SENSITIVE_SCREENSHOT",
+      "page": 15,
+      "text_start": 0,
+      "text_end": 0,
+      "bbox": [50.0, 100.0, 500.0, 400.0],
+      "value_snippet": "OneTrust Vendor Database Image"
+    },
+    {
+      "type": "PHONE",
+      "page": 22,
+      "text_start": 1054,
+      "text_end": 1066,
+      "bbox": [0.0, 0.0, 0.0, 0.0],
+      "value_snippet": "555-019-3829"
+    }
+  ]
+}

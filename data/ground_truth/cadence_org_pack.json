@@ -1,0 +1,47 @@
+{
+  "document_id": "cadence_org_pack_pptx",
+  "filename": "Cadence_Financial_Group_Organizational_Pack.pptx",
+  "description": "9 slides, native shapes, org charts, speaker notes, hidden slides. Small text inside diagrams, visual organization hierarchy, hidden channels/notes.",
+  "ground_truth_entities": [
+    {
+      "type": "EMPLOYEE_ID",
+      "page": 3,
+      "text_start": 54,
+      "text_end": 62,
+      "bbox": [0.0, 0.0, 0.0, 0.0],
+      "value_snippet": "EMP-8239"
+    },
+    {
+      "type": "PERSON",
+      "page": 3,
+      "text_start": 64,
+      "text_end": 78,
+      "bbox": [0.0, 0.0, 0.0, 0.0],
+      "value_snippet": "Marcus Donahue"
+    },
+    {
+      "type": "EMPLOYEE_ID",
+      "page": 4,
+      "text_start": 12,
+      "text_end": 20,
+      "bbox": [0.0, 0.0, 0.0, 0.0],
+      "value_snippet": "EMP-9912"
+    },
+    {
+      "type": "PERSON",
+      "page": 4,
+      "text_start": 22,
+      "text_end": 35,
+      "bbox": [0.0, 0.0, 0.0, 0.0],
+      "value_snippet": "Elena Rostova"
+    },
+    {
+      "type": "DIRECTOR_ID",
+      "page": 7,
+      "text_start": 210,
+      "text_end": 219,
+      "bbox": [0.0, 0.0, 0.0, 0.0],
+      "value_snippet": "DIR-00041"
+    }
+  ]
+}
