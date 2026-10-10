@@ -159,12 +159,43 @@ src/
 
 ## 5. Developer 4 Implementation Checklist
 
-- [ ] Author `config/policy.yaml` with rules, actions, and allow-lists
-- [ ] Implement risk scoring and critical dominance rules in `src/policy/risk.py`
-- [ ] Implement policy engine evaluator in `src/policy/policy.py`
-- [ ] Implement text redaction in `src/sanitization/text_redactor.py`
-- [ ] Implement independent secondary verifier in `src/verification/verifier.py`
-- [ ] Implement re-OCR residual scanner in `src/verification/residual_scan.py`
-- [ ] Implement fail-closed AI Readiness gate in `src/verification/gate.py`
-- [ ] Implement zero-PII salted-hash audit logger in `src/audit/logger.py`
-- [ ] Write unit tests in `tests/unit/test_policy.py`, `tests/unit/test_verifier.py`, and `tests/unit/test_gate.py`
+- [x] Author `config/policy.yaml` with rules, actions, and allow-lists
+- [x] Implement risk scoring and critical dominance rules in `src/policy/risk.py`
+- [x] Implement policy engine evaluator in `src/policy/policy.py`
+- [x] Implement text redaction in `src/sanitization/text_redactor.py`
+- [x] Implement independent secondary verifier in `src/verification/verifier.py`
+- [x] Implement re-OCR residual scanner in `src/verification/residual_scan.py`
+- [x] Implement fail-closed AI Readiness gate in `src/verification/gate.py`
+- [x] Implement zero-PII salted-hash audit logger in `src/audit/logger.py`
+- [x] Write unit tests in `tests/unit/test_policy.py`, `tests/unit/test_verifier.py`, and `tests/unit/test_gate.py`
+      (plus `test_text_redactor.py`, `test_residual_scan.py`, `test_audit_logger.py`, `test_output_scanner.py`
+      and `tests/integration/test_security_checkpoint.py`)
+- [x] Security checkpoint orchestrator `src/verification/checkpoint.py` (policy → redact → verify → gate → audit)
+- [x] LLM output scanner `src/verification/output_scanner.py` (Day 18, second security boundary)
+- [x] `docs/threat_model.md`: threat model, security boundary, policy guide, block codes (Day 1 / Day 21)
+- [x] Demo: `python scripts/dev4_security_checkpoint_demo.py`
+
+---
+
+## 6. Integration Hooks (how other developers plug in)
+
+Everything below is additive. No existing module was modified.
+
+| From | What to call | Notes |
+|---|---|---|
+| **Dev 3** (detection) | `SecurityCheckpoint().run(blocks, detection_result, filename=...)` | `blocks` = the `ContentBlock`s given to `DetectionPipeline.run()`. Offsets are block-relative, so each entity needs its `block_id`. |
+| **Dev 3** (CanonicalDocument path) | `DetectionPipeline.run_document()` currently drops `block_id` when it converts `PIIEntity` → `EntityAnnotation`. Adding `"block_id": entity.block_id` to the `context` dict there is enough: the redactor already reads `context["block_id"]`. Until then, document-level redaction blocks with `REDACTION_INCOMPLETE` (fail-closed). | One-line change, Dev 3's call. |
+| **Dev 2** (OCR / pixel burning) | `ResidualScanner.from_policy().scan_pages(page_images, page_boxes)` | `page_boxes` is the same map passed to `redact_scanned_pdf()`. Single result dicts from `src.ocr.residual_scan.scan_residual()` go to `evaluate_ocr_result(result, redacted_boxes=...)`. Pass the reports to `checkpoint.run(..., residual_reports=[...])`. |
+| **Dev 2** (OCR confidence) | `checkpoint.run(..., ocr_confidences={page: conf})` | Any page ≤ 0.60 blocks. |
+| **Dev 1** (DOCX rebuild) | `TextRedactor().build_docx_replacements(blocks, entities)` → `DOCXReconstructor.replace_text_in_document(src, dst, replacements)` | Then `checkpoint.run(..., integrity_result=DocumentIntegrityGuard.verify_document(dst))`. |
+| **Dev 1** (pre-flight rejections) | `AuditLogger.from_policy().log_security_event(doc_id, filename, "ZIP_BOMB_DETECTED", detail)` | Codes from `docs/architecture.md` §4. |
+| **Dev 5** (UI) | `result.gate_decision.label` (`"AI READY: PASS"`), `result.to_dict()`, `AuditLogger.from_policy().read_records(limit=50)` | All UI-safe: no raw PII. Release text only via `result.llm_payload` / `result.sanitized_blocks` (empty when blocked). |
+| **Dev 5** (adversarial tests) | `from src.verification.verifier import verify_document` → `verify_document(text).passed` | Drop-in for the `mock_verifier` in `tests/adversarial/test_evasion.py`. |
+| **Dev 5** (Day 15 compliance) | `audit_compliance_check(log_path, ground_truth_values)` | Confirms zero raw PII in the audit log. |
+
+### Remaining Dev 4 roadmap items (need other modules first)
+
+- [ ] **Day 14:** joint end-to-end smoke test on the three Cadence files (needs Dev 3's `block_id` hand-off and Dev 2's re-OCR on real pages).
+- [ ] **Day 15:** run `audit_compliance_check()` over a full benchmark run with the frozen ground-truth values.
+- [ ] **Day 19:** wire the gate banner, audit table and policy view into `app.py` (Dev 5 owns the layout; the APIs above are ready).
+- [ ] Production: set `PII_FIREWALL_AUDIT_SALT`, and flip `gate.require_integrity_check: true` once sanitized files are produced.

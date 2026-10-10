@@ -1,0 +1,124 @@
+# =============================================================================
+# PII Security Firewall - Security Policy
+# Owner: Person 4 (Security Policy, Independent Verification & Audit)
+#
+# Read by:
+#   src/policy/policy.py          -> PolicyEngine (entity actions, allow-lists)
+#   src/verification/verifier.py  -> IndependentVerifier (heuristic thresholds)
+#   src/verification/gate.py      -> AIReadinessGate (fail-closed criteria)
+#   src/audit/logger.py           -> AuditLogger (log path, salt)
+#
+# Rules of thumb for editing:
+#   * The policy can only make things STRICTER than the schema. An entity's
+#     effective risk is max(policy tier, src/schema/entities.py RISK_MAPPING).
+#   * ALLOW is only accepted as an action for MEDIUM and LOW tiers.
+#   * gate.fail_closed must stay true; the loader refuses to run otherwise.
+# =============================================================================
+
+version: "1.0"
+policy_name: "cadence-pii-firewall-default"
+
+# -----------------------------------------------------------------------------
+# Entity rules, grouped by risk tier.
+#   action                    -> what happens to a confident detection
+#   min_confidence_to_redact  -> confidence bar for a "confident" detection
+#   uncertainty_action        -> what happens to a detection BELOW that bar
+#                                (BLOCK = stop the whole document)
+# -----------------------------------------------------------------------------
+rules:
+  CRITICAL:
+    entities: [SSN, PASSPORT, PAN, AADHAAR, CARD, NINO, TAX_ID]
+    action: REDACT
+    min_confidence_to_redact: 0.50
+    uncertainty_action: BLOCK
+
+  HIGH:
+    entities:
+      - PERSON
+      - EMAIL
+      - PHONE
+      - ADDRESS
+      - DOB
+      - EMPLOYEE_ID
+      - DIRECTOR_ID
+      - BANK_ACCOUNT
+      - SIGNATURE
+      - FACE_PHOTO
+      - SENSITIVE_SCREENSHOT
+    action: REDACT
+    min_confidence_to_redact: 0.70
+    uncertainty_action: REDACT   # redact when in doubt
+
+  MEDIUM:
+    entities: [IFSC, GST, UPI]
+    action: REDACT
+    min_confidence_to_redact: 0.80
+    uncertainty_action: REDACT
+
+  LOW:
+    entities: []
+    action: REDACT
+    min_confidence_to_redact: 0.0
+    uncertainty_action: REDACT
+
+# Entity types not listed above (new detector output, typos, ...).
+unknown_entity_policy:
+  risk: HIGH
+  action: REDACT
+
+# -----------------------------------------------------------------------------
+# Allow-lists: business references that look like IDs but are not PII.
+# Patterns are matched with fullmatch() against entity values and with
+# finditer() against free text (verifier), so keep the \b anchors.
+# Digit runs are capped at 6 so an allow-listed prefix cannot be used to
+# smuggle a 9-digit SSN or a 16-digit card number past the verifier
+# (e.g. "INC-2026-219457890" is NOT allow-listed).
+# -----------------------------------------------------------------------------
+allow_lists:
+  business_codes:
+    - '\bINC-\d{4}-\d{1,6}\b'
+    - '\bRSK-\d{1,6}\b'
+    - '\bGRP-POL-\d{1,6}\b'
+    - '\bCTL-IAM-\d{1,6}\b'
+
+# -----------------------------------------------------------------------------
+# Native text redaction (src/sanitization/text_redactor.py)
+# -----------------------------------------------------------------------------
+redaction:
+  mode: token                       # token -> [REDACTED_SSN] | block -> ███████
+  token_format: "[REDACTED_{type}]"
+  block_char: "█"
+  min_docx_target_length: 3         # shorter targets are not safe for global DOCX find/replace
+
+# -----------------------------------------------------------------------------
+# Independent verifier heuristics (src/verification/verifier.py)
+# -----------------------------------------------------------------------------
+verification:
+  digit_run_min_length: 9           # SSN length; shorter runs are dates/years/page numbers
+  digit_run_max_length: 19          # longest card number
+  digit_entropy_threshold: 2.5      # Shannon bits/char; random 9+ digit IDs score ~2.8-3.3
+  spacing_min_run: 4                # "R a h u l" -> 5 spaced letters
+  cue_window_chars: 30              # how far after "SSN:" / "Passport No" to look for a value
+  residual_scan:
+    burned_box_overlap_threshold: 0.30   # OCR text overlapping a burned box by >=30% = leak
+    min_reocr_confidence: 0.60           # re-OCR page mean at/below this = uncertain
+
+# -----------------------------------------------------------------------------
+# Fail-closed AI readiness gate (src/verification/gate.py)
+# -----------------------------------------------------------------------------
+gate:
+  fail_closed: true
+  max_allowed_residual_risk: NONE
+  min_page_ocr_confidence: 0.60     # a page at or below this blocks (matches src/ocr/confidence.py)
+  block_on_prompt_injection: true
+  block_on_unicode_anomalies: false # anomalies are stripped by InputSafetyGuard instead
+  require_integrity_check: false    # set true once sanitized files are produced end-to-end (Day 14)
+
+# -----------------------------------------------------------------------------
+# Zero-PII audit log (src/audit/logger.py)
+# -----------------------------------------------------------------------------
+audit:
+  log_path: data/outputs/audit.log
+  salt_env_var: PII_FIREWALL_AUDIT_SALT
+  hash_filenames: false             # true -> filenames are stored as salted hashes only
+  hash_chain: true                  # each record carries prev_hash/record_hash (tamper evidence)
