@@ -11,9 +11,12 @@ PyYAML>=6.0.0
 # Testing & Quality Assurance
 pytest>=8.0.0
 
-# Person 2: OCR & Vision (To be completed by Person 2)
-# easyocr>=1.7.0
-# opencv-python>=4.8.0
+# Person 2: OCR & Vision
+easyocr>=1.7.0
+opencv-python-headless>=4.8.0
+torch>=2.0.0
+torchvision>=0.15.0
+scikit-image>=0.20.0
 
 # Person 3: Detection & NLP (To be completed by Person 3)
 # spacy>=3.7.0
@@ -24,3 +27,4 @@ pytest>=8.0.0
 
 # Person 5: UI & Benchmark
 # streamlit>=1.35.0
+

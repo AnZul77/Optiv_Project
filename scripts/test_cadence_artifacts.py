@@ -141,7 +141,7 @@ def main():
     banner(print_header)
 
     for f in files:
-        test_file(f)
+        check_file(f)
 
     banner("ALL 3 CADENCE ARTIFACTS PROCESSED SUCCESSFULLY BY DEVELOPER 1")
 

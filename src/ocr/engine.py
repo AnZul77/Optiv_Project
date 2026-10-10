@@ -35,16 +35,29 @@ class OCREngine:
     def __init__(self, lang: str = "en") -> None:
         self.lang = lang
         self._ocr = None
+        self._engine_type = "PaddleOCR"
 
     def _get_ocr(self):
-        """Initialize PaddleOCR lazily."""
+        """Initialize OCR engine (PaddleOCR with EasyOCR fallback) lazily."""
         if self._ocr is None:
-            from paddleocr import PaddleOCR
+            try:
+                from paddleocr import PaddleOCR
 
-            self._ocr = PaddleOCR(
-                lang=self.lang,
-                enable_mkldnn=False,
-            )
+                self._ocr = PaddleOCR(
+                    lang=self.lang,
+                    enable_mkldnn=False,
+                )
+                self._engine_type = "PaddleOCR"
+            except (ImportError, Exception):
+                try:
+                    import easyocr
+
+                    self._ocr = easyocr.Reader([self.lang], gpu=False)
+                    self._engine_type = "EasyOCR"
+                except Exception as e:
+                    raise ImportError(
+                        f"No supported OCR engine (PaddleOCR or EasyOCR) available: {e}"
+                    )
 
         return self._ocr
 
@@ -175,6 +188,55 @@ class OCREngine:
                         "mapping_error": str(exc),
                     })
 
+    @staticmethod
+    def _parse_easyocr_result(
+        result: Any,
+    ) -> list[dict[str, Any]]:
+        """Parse EasyOCR readtext() tuples: (polygon, text, score)."""
+        items: list[dict[str, Any]] = []
+        if not isinstance(result, list):
+            return items
+
+        for item in result:
+            if not isinstance(item, (tuple, list)) or len(item) < 3:
+                continue
+
+            box, raw_text, score = item[0], item[1], item[2]
+            recognized_text = str(raw_text).strip()
+            if not recognized_text:
+                continue
+
+            try:
+                conf = clamp_confidence(float(score))
+            except (TypeError, ValueError, OverflowError):
+                conf = 0.0
+
+            try:
+                pts = np.asarray(box).reshape(-1, 2)
+                x0 = float(np.min(pts[:, 0]))
+                x1 = float(np.max(pts[:, 0]))
+                y0 = float(np.min(pts[:, 1]))
+                y1 = float(np.max(pts[:, 1]))
+
+                if x1 > x0 and y1 > y0:
+                    items.append({
+                        "text": recognized_text,
+                        "confidence": conf,
+                        "pixel_bbox": [x0, y0, x1, y1],
+                    })
+                else:
+                    items.append({
+                        "text": recognized_text,
+                        "confidence": conf,
+                        "mapping_error": "Bounding box has invalid dimensions.",
+                    })
+            except Exception as exc:
+                items.append({
+                    "text": recognized_text,
+                    "confidence": conf,
+                    "mapping_error": str(exc),
+                })
+
         return items
 
     def extract(
@@ -202,8 +264,12 @@ class OCREngine:
             )
 
         ocr = self._get_ocr()
-        raw_result = ocr.predict(processed)
-        items = self._parse_paddle_result(raw_result)
+        if getattr(self, "_engine_type", "PaddleOCR") == "PaddleOCR":
+            raw_result = ocr.predict(processed)
+            items = self._parse_paddle_result(raw_result)
+        else:
+            raw_result = ocr.readtext(processed)
+            items = self._parse_easyocr_result(raw_result)
 
         regions: list[dict[str, Any]] = []
         unmapped_text: list[str] = []
@@ -287,7 +353,7 @@ class OCREngine:
             "width": width,
             "height": height,
             "low_confidence": low_confidence,
-            "engine": "PaddleOCR",
+            "engine": getattr(self, "_engine_type", "PaddleOCR"),
             "page": page,
             "unmapped_text": unmapped_text,
             "warnings": warnings,

@@ -71,14 +71,46 @@ def binarize(image_rgb: np.ndarray) -> np.ndarray:
     return cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
 
 
+def deskew(image_rgb: np.ndarray) -> np.ndarray:
+    """Correct slight rotational skew in scanned documents or images."""
+    gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
+    thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+    coords = np.column_stack(np.where(thresh > 0))
+    if coords.size == 0:
+        return image_rgb
+
+    rect = cv2.minAreaRect(coords)
+    angle = rect[-1]
+
+    if angle < -45:
+        angle = -(90 + angle)
+    elif angle > 45:
+        angle = 90 - angle
+    else:
+        angle = -angle
+
+    if abs(angle) < 0.5 or abs(angle) > 45:
+        return image_rgb
+
+    h, w = image_rgb.shape[:2]
+    center = (w // 2, h // 2)
+    matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+    return cv2.warpAffine(
+        image_rgb, matrix, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
+    )
+
+
 def preprocess_image(
     image: ImageInput,
     input_is_bgr: bool = False,
     apply_binarization: bool = False,
     apply_denoising: bool = True,
+    apply_deskew: bool = False,
 ) -> np.ndarray:
     """Return an OCR-ready RGB image with its original dimensions."""
     rgb = to_rgb_array(image, input_is_bgr=input_is_bgr)
+    if apply_deskew:
+        rgb = deskew(rgb)
     rgb = enhance_contrast(rgb)
 
     if apply_denoising:
@@ -87,4 +119,4 @@ def preprocess_image(
     if apply_binarization:
         rgb = binarize(rgb)
 
-    return rgb
+    return rgb

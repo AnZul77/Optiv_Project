@@ -44,24 +44,18 @@ def test_dpi_below_minimum_raises_error(tmp_path):
             dpi=50,
         )
 
-from reportlab.pdfgen import canvas
-from pdf2image import convert_from_path
-
-
-
 def test_redact_scanned_pdf_blacks_target_region(tmp_path):
-    from reportlab.pdfgen import canvas
-    from pdf2image import convert_from_path
-    from src.sanitization.pdf_redactor import redact_scanned_pdf
-
-    poppler_path = r"C:\poppler-26.09.0\Library\bin"
+    import pymupdf as fitz
+    from src.sanitization.pdf_redactor import redact_scanned_pdf, render_pdf_to_images
 
     input_pdf = tmp_path / "synthetic.pdf"
     output_pdf = tmp_path / "redacted.pdf"
 
-    pdf = canvas.Canvas(str(input_pdf), pagesize=(200, 200))
-    pdf.drawString(40, 100, "Synthetic test document")
-    pdf.save()
+    doc = fitz.open()
+    page = doc.new_page(width=200, height=200)
+    page.insert_text((40, 100), "Synthetic test document", fontsize=12)
+    doc.save(str(input_pdf))
+    doc.close()
 
     page_boxes = {
         1: [[0.25, 0.25, 0.75, 0.75]]
@@ -73,13 +67,11 @@ def test_redact_scanned_pdf_blacks_target_region(tmp_path):
         page_boxes,
         dpi=100,
         padding=0,
-        poppler_path=poppler_path,
     )
 
-    pages = convert_from_path(
+    pages = render_pdf_to_images(
         str(output_pdf),
         dpi=100,
-        poppler_path=poppler_path,
     )
 
     assert len(pages) == 1
