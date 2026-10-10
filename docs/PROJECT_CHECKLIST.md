@@ -126,24 +126,28 @@
 
 ## 4. Developer 4: Security Policy, Independent Verification & Audit Lead
 
+### ✅ Completed Tasks (Done)
+- [x] **Day 1:** Threat model and security boundary spec (`docs/threat_model.md`), `config/policy.yaml`.
+- [x] **Day 3:** Business reference allow-lists (`INC-*`, `RSK-*`, `GRP-POL-*`, `CTL-IAM-*`, digit runs capped against smuggling).
+- [x] **Day 4:** Risk scoring rubric in `src/policy/risk.py` (inherent vs. residual, critical dominance).
+- [x] **Day 5:** Zero-PII salted-hash audit logger in `src/audit/logger.py` (JSONL, scrubbing, hash chain).
+- [x] **Day 7:** Entity resolution → policy lookup (`PolicyEngine.apply(detection_result.entities)`).
+- [x] **Day 8:** `src/policy/policy.py` reading and validating `config/policy.yaml`, MAX-risk aggregation.
+- [x] **Day 9:** `src/sanitization/text_redactor.py` (`[REDACTED_TYPE]` / solid block masking, DOCX replacement map).
+- [x] **Day 10:** Scanned-PDF burned boxes: already delivered by Developer 2 (`src/sanitization/pdf_redactor.py`); not duplicated.
+- [x] **Day 11:** Re-OCR feed → `src/verification/residual_scan.py` (consumes `src/ocr/residual_scan.scan_residual()`).
+- [x] **Day 12:** `src/verification/verifier.py`, independent stack (no `src.detection` imports, enforced by test).
+- [x] **Day 13:** `src/verification/gate.py`: fail-closed gate; `src/verification/checkpoint.py` orchestrator.
+- [x] **Day 15 (tooling):** `audit_compliance_check()` for zero-raw-PII verification of audit logs.
+- [x] **Day 16:** Simulated detector failures covered in `tests/integration/test_security_checkpoint.py`.
+- [x] **Day 17:** Prompt-injection handling verified (gate BLOCK + inert `<document_payload>` envelope).
+- [x] **Day 18:** `src/verification/output_scanner.py` (LLM response scanner).
+- [x] **Day 21 (doc):** `docs/threat_model.md`: security boundary writeup, policy guide, block codes.
+
 ### ⏳ Tasks Left to be Done
-- [ ] **Day 1:** Draft threat model, initial `config/policy.yaml`, and security boundary specs.
-- [ ] **Day 3:** Implement business reference allow-lists (`INC-*`, `RSK-*`, `GRP-POL-*`).
-- [ ] **Day 4:** Draft risk scoring rubric in `src/policy/risk.py` (Critical, High, Medium).
-- [ ] **Day 5:** Implement audit logging schema (salted hash structure) in `src/audit/logger.py`.
-- [ ] **Day 7:** Connect entity resolution with policy lookup (`action: REDACT/BLOCK/ALLOW`).
-- [ ] **Day 8:** Implement `src/policy/policy.py` reading `config/policy.yaml` and MAX-risk aggregation.
-- [ ] **Day 9:** Build `src/sanitization/text_redactor.py` (`[REDACTED_TYPE]` or solid block masking).
-- [ ] **Day 10:** Reconstruct sanitized PDFs with opaque burned boxes (`src/sanitization/pdf_redactor.py`).
-- [ ] **Day 11:** Connect re-OCR output to secondary scan feed in `src/verification/residual_scan.py`.
-- [ ] **Day 12:** Implement `src/verification/verifier.py` (independent stack decoupled from primary detector).
-- [ ] **Day 13:** Implement `src/verification/gate.py` (`AI_READY = TRUE` only if verifier passes and no critical uncertainty remains).
-- [ ] **Day 15:** Audit compliance verification (confirm zero raw PII logged anywhere in runtime).
-- [ ] **Day 16:** Verify security boundary behavior under simulated detector failures.
-- [ ] **Day 17:** Verify prompt injection handling (confirm injected prompts inside text are treated as inert data).
-- [ ] **Day 18:** Implement output scanner on LLM responses (second security boundary).
-- [ ] **Day 19:** Display Gate decision (`AI READY: PASS / BLOCK`), audit logs, and policy toggles in UI.
-- [ ] **Day 21:** Complete `docs/threat_model.md`, security boundary writeup, and policy guide.
+- [ ] **Day 14:** Joint end-to-end smoke test on Cadence artifacts (needs `block_id` in `EntityAnnotation.context` from Dev 3 and real re-OCR from Dev 2).
+- [ ] **Day 15:** Run `audit_compliance_check()` over a full benchmark run with frozen ground-truth values.
+- [ ] **Day 19:** Display Gate decision (`AI READY: PASS / BLOCK`), audit logs, and policy toggles in UI (APIs ready; `app.py` layout is Dev 5's).
 
 ---
 
