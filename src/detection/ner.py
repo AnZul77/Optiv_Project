@@ -111,12 +111,24 @@ class NEREngine:
             from presidio_analyzer import AnalyzerEngine
             from presidio_analyzer.nlp_engine import SpacyNlpEngine
 
-            logger.info("Loading spaCy model: %s", self.spacy_model_name)
-            self._nlp = spacy.load(self.spacy_model_name)
+            try:
+                logger.info("Loading spaCy model: %s", self.spacy_model_name)
+                self._nlp = spacy.load(self.spacy_model_name)
+                loaded_model = self.spacy_model_name
+            except OSError:
+                if self.spacy_model_name != "en_core_web_sm":
+                    logger.warning(
+                        "spaCy model '%s' not found. Falling back to 'en_core_web_sm'.",
+                        self.spacy_model_name,
+                    )
+                    self._nlp = spacy.load("en_core_web_sm")
+                    loaded_model = "en_core_web_sm"
+                else:
+                    raise
 
             # Configure Presidio with spaCy backend
             spacy_engine = SpacyNlpEngine(
-                models=[{"lang_code": "en", "model_name": self.spacy_model_name}]
+                models=[{"lang_code": "en", "model_name": loaded_model}]
             )
             self._analyzer = AnalyzerEngine(nlp_engine=spacy_engine)
 
@@ -126,7 +138,7 @@ class NEREngine:
             self._initialized = True
             logger.info(
                 "NEREngine initialized with %s and %d custom recognizers",
-                self.spacy_model_name,
+                loaded_model,
                 len(self._get_custom_recognizer_configs()),
             )
 
@@ -134,17 +146,18 @@ class NEREngine:
             logger.error(
                 "NER dependencies not installed. Run: "
                 "pip install presidio-analyzer spacy && "
-                "python -m spacy download en_core_web_lg. Error: %s",
+                "python -m spacy download en_core_web_sm. Error: %s",
                 e,
             )
             raise
         except OSError as e:
             logger.error(
                 "spaCy model '%s' not found. Run: "
-                "python -m spacy download %s. Error: %s",
-                self.spacy_model_name, self.spacy_model_name, e,
+                "python -m spacy download en_core_web_sm. Error: %s",
+                self.spacy_model_name, e,
             )
             raise
+
 
     def detect(self, block: ContentBlock) -> List[PIIEntity]:
         """

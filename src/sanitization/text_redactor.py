@@ -25,8 +25,9 @@ DOCXReconstructor.replace_text_in_document().
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 from src.policy.risk import (
     entity_action_name,
@@ -82,7 +83,7 @@ class BlockRedactionResult:
 
     @property
     def sanitized_text(self) -> str:
-        return "\n\n".join(getattr(b, "text", "") for b in self.sanitized_blocks)
+        return "\n\n".join(getattr(b, "text", "") or "" for b in self.sanitized_blocks)
 
     @property
     def is_complete(self) -> bool:
@@ -282,3 +283,56 @@ def redact_text(
 ) -> TextRedactionResult:
     """Module-level convenience wrapper."""
     return TextRedactor(mode=mode).redact_text(text, entities)
+
+
+# =============================================================================
+# Value and Span Replacement Utilities
+# =============================================================================
+
+def redact_text_by_spans(
+    text: str,
+    spans: Sequence[Dict[str, Union[int, str]]],
+    mask_format: str = "[REDACTED:{type}]",
+) -> str:
+    """
+    Replace text spans with redaction tokens using character offsets.
+    """
+    if not text or not spans:
+        return text
+
+    sorted_spans = sorted(spans, key=lambda s: s.get("start", 0), reverse=True)
+    result = text
+    for span in sorted_spans:
+        start = int(span.get("start", 0))
+        end = int(span.get("end", 0))
+        entity_type = str(span.get("type", "PII"))
+
+        if 0 <= start <= end <= len(result):
+            replacement = mask_format.format(type=entity_type)
+            result = result[:start] + replacement + result[end:]
+
+    return result
+
+
+def redact_text_by_values(
+    text: str,
+    replacements: Dict[str, str],
+    case_sensitive: bool = True,
+) -> str:
+    """
+    Replace specific text strings with replacement tokens.
+    """
+    if not text or not replacements:
+        return text
+
+    result = text
+    sorted_items = sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True)
+
+    for raw_val, mask in sorted_items:
+        if not raw_val or not raw_val.strip():
+            continue
+        flags = 0 if case_sensitive else re.IGNORECASE
+        escaped = re.escape(raw_val)
+        result = re.sub(escaped, mask, result, flags=flags)
+
+    return result

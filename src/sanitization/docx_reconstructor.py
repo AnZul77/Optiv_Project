@@ -47,31 +47,39 @@ class DOCXReconstructor:
         if not os.path.exists(input_path):
             return False, f"Source file not found: {input_path}"
 
-        if not replacements:
-            # Nothing to replace, copy file directly
+        # Filter and sort targets by length descending for greedy replacement
+        valid_targets = [k for k in replacements.keys() if k and k.strip()]
+        if not valid_targets:
             shutil.copy2(input_path, output_path)
             return True, None
+
+        import re
+        sorted_targets = sorted(valid_targets, key=len, reverse=True)
+        regex_pattern = re.compile("|".join(re.escape(k) for k in sorted_targets))
+
+        def _sub_func(match: re.Match) -> str:
+            return replacements.get(match.group(0), match.group(0))
 
         try:
             doc = Document(input_path)
 
             # 1. Replace in body paragraphs
             for para in doc.paragraphs:
-                DOCXReconstructor._replace_in_paragraph(para, replacements)
+                DOCXReconstructor._replace_in_paragraph_fast(para, regex_pattern, _sub_func)
 
             # 2. Replace in tables (including nested cells)
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:
                         for p in cell.paragraphs:
-                            DOCXReconstructor._replace_in_paragraph(p, replacements)
+                            DOCXReconstructor._replace_in_paragraph_fast(p, regex_pattern, _sub_func)
 
             # 3. Replace in XML text boxes (w:txbxContent)
             try:
                 txbx_elements = doc.element.xpath(".//w:txbxContent//w:p")
                 for p_elem in txbx_elements:
                     para = Paragraph(p_elem, doc)
-                    DOCXReconstructor._replace_in_paragraph(para, replacements)
+                    DOCXReconstructor._replace_in_paragraph_fast(para, regex_pattern, _sub_func)
             except Exception:
                 pass
 
@@ -93,35 +101,39 @@ class DOCXReconstructor:
             return False, f"Failed to reconstruct DOCX: {e}"
 
     @staticmethod
-    def _replace_in_paragraph(paragraph: Paragraph, replacements: Dict[str, str]) -> None:
+    def _replace_in_paragraph_fast(paragraph: Paragraph, pattern: Any, sub_func: Any) -> None:
         """
-        Replace sensitive text within a paragraph while preserving run formatting.
+        Fast regex-based replacement within a paragraph while preserving styling.
         """
-        para_text = paragraph.text
-        if not any(target in para_text for target in replacements):
+        if not pattern.search(paragraph.text):
             return
 
-        # Simple case: check if any run directly contains the target
-        for target, replacement in replacements.items():
-            if target not in paragraph.text:
-                continue
+        # Check if individual runs contain matches
+        for run in paragraph.runs:
+            if pattern.search(run.text):
+                run.text = pattern.sub(sub_func, run.text)
 
-            for run in paragraph.runs:
-                if target in run.text:
-                    run.text = run.text.replace(target, replacement)
+        # Cross-run check: if paragraph still contains matches that crossed run boundaries
+        if pattern.search(paragraph.text):
+            full_text = pattern.sub(sub_func, paragraph.text)
+            if paragraph.runs:
+                paragraph.runs[0].text = full_text
+                for r in paragraph.runs[1:]:
+                    r.text = ""
+            else:
+                paragraph.text = full_text
 
-        # Cross-run case: if the target spanned multiple runs, replace at paragraph level
-        for target, replacement in replacements.items():
-            if target in paragraph.text:
-                # Target spans multiple runs; rebuild while preserving primary run's style
-                full_text = paragraph.text.replace(target, replacement)
-                if paragraph.runs:
-                    first_run = paragraph.runs[0]
-                    first_run.text = full_text
-                    for r in paragraph.runs[1:]:
-                        r.text = ""
-                else:
-                    paragraph.text = full_text
+    @staticmethod
+    def _replace_in_paragraph(paragraph: Paragraph, replacements: Dict[str, str]) -> None:
+        """Legacy fallback replacement helper."""
+        valid_targets = [k for k in replacements.keys() if k and k.strip()]
+        if not valid_targets:
+            return
+        import re
+        sorted_targets = sorted(valid_targets, key=len, reverse=True)
+        pat = re.compile("|".join(re.escape(k) for k in sorted_targets))
+        DOCXReconstructor._replace_in_paragraph_fast(paragraph, pat, lambda m: replacements.get(m.group(0), m.group(0)))
+
 
     @staticmethod
     def replace_images_in_document(

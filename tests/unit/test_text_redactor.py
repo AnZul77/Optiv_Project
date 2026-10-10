@@ -1,12 +1,15 @@
 """
-Unit Tests: Native Text Redactor (Person 4)
+Unit Tests: Native Text Redactor (Person 4 & Shared Helpers)
 """
 
 from types import SimpleNamespace
-
 import pytest
 
-from src.sanitization.text_redactor import TextRedactor
+from src.sanitization.text_redactor import (
+    TextRedactor,
+    redact_text_by_spans,
+    redact_text_by_values,
+)
 from src.schema.entities import Action, ContentBlock, EntityType, PIIEntity
 
 TEXT = "Name: Alice Vance, SSN: 219-45-7890, mail alice@corp.com"
@@ -134,3 +137,27 @@ class TestDocxReplacements:
         assert ok, err
         text = "\n".join(p.text for p in docx.Document(out).paragraphs)
         assert "219-45-7890" not in text and "[REDACTED_SSN]" in text
+
+
+class TestHelperFunctions:
+    def test_redact_text_by_spans(self):
+        text = "Contact Alice at alice@example.com."
+        spans = [
+            {"start": 8, "end": 13, "type": "PERSON"},
+            {"start": 17, "end": 34, "type": "EMAIL"},
+        ]
+        redacted = redact_text_by_spans(text, spans)
+        assert "[REDACTED:PERSON]" in redacted
+        assert "[REDACTED:EMAIL]" in redacted
+        assert "alice@example.com" not in redacted
+
+    def test_redact_text_by_values(self):
+        text = "Employee John Doe with SSN 123-45-6789."
+        replacements = {
+            "John Doe": "[REDACTED:PERSON]",
+            "123-45-6789": "[REDACTED:SSN]",
+        }
+        redacted = redact_text_by_values(text, replacements)
+        assert "[REDACTED:PERSON]" in redacted
+        assert "[REDACTED:SSN]" in redacted
+        assert "John Doe" not in redacted

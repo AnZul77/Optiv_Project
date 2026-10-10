@@ -330,6 +330,7 @@ class DetectionPipeline:
                 risk=entity.risk_level.value if hasattr(entity.risk_level, "value") else str(entity.risk_level),
                 action=entity.action.value if hasattr(entity.action, "value") else str(entity.action),
                 context={
+                    "raw_value": entity.value,
                     "detection_layers": entity.detection_layers,
                     "context_cues": entity.context_cues,
                     "validator_result": entity.validator_result.value if hasattr(entity.validator_result, "value") else str(entity.validator_result),

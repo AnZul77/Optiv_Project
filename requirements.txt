@@ -34,3 +34,21 @@ streamlit>=1.35.0
 pytest>=8.0.0
 pytest-cov>=4.1.0
 pydantic>=2.0.0
+
+# Person 2: OCR & Vision
+easyocr>=1.7.0
+opencv-python-headless>=4.8.0
+torch>=2.0.0
+torchvision>=0.15.0
+scikit-image>=0.20.0
+
+# Person 3: Detection & NLP (To be completed by Person 3)
+# spacy>=3.7.0
+# presidio-analyzer>=2.2.0
+
+# Person 4: Verification & Policy
+# cryptography>=42.0.0
+
+# Person 5: UI & Benchmark
+# streamlit>=1.35.0
+

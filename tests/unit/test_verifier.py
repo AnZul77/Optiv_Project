@@ -190,8 +190,13 @@ class TestValidators:
 class TestDenialOfService:
     """Crafted long tokens must not trigger quadratic regex backtracking."""
 
-    @pytest.mark.parametrize("payload", ["a" * 50000, "a." * 25000, "1 " * 25000, "a [at] " * 7000])
+    @pytest.mark.parametrize(
+        "payload",
+        ["a" * 50000, "a." * 25000, "1 " * 25000, "a [at] " * 7000],
+        ids=["50k_a", "25k_dots", "25k_spaces", "7k_at"],
+    )
     def test_pathological_input_is_fast(self, verifier, payload):
+
         import time
 
         started = time.perf_counter()
