@@ -206,10 +206,38 @@ if page == "Live Security Gateway":
 
 # --- PAGE: BENCHMARK METRICS ---
 elif page == "Benchmark Metrics":
-    st.title("Benchmark Metrics")
-    st.info("Evaluation metrics and ablation studies will be displayed here.")
+    st.title("Benchmark Metrics & Ablation Study")
+    
+    ablation_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "evaluation", "ablation_results.md")
+    
+    if os.path.exists(ablation_path):
+        with open(ablation_path, "r") as f:
+            ablation_content = f.read()
+        st.markdown(ablation_content)
+    else:
+        st.warning("⚠️ Ablation study results not found. Run `python src/evaluation/ablation.py` first.")
+        st.info("Evaluation metrics and ablation studies will be displayed here.")
 
 # --- PAGE: ADVERSARIAL TESTING ---
 elif page == "Adversarial Testing Suite":
-    st.title("Adversarial Testing Suite")
-    st.info("Adversarial attack vectors and robustness results will be displayed here.")
+    st.title("Adversarial Evasion Testing")
+    st.markdown("Run the suite of hacking attempts designed to bypass the PII Detection Layer.")
+    
+    if st.button("▶️ Run Adversarial Test Suite"):
+        with st.spinner("Executing Homoglyph, Spacing, and Zero-Width Space attacks..."):
+            import subprocess
+            # Use the local virtual environment pytest to run the test file
+            result = subprocess.run(
+                [sys.executable, "-m", "pytest", "tests/adversarial/test_evasion.py", "-v"],
+                capture_output=True,
+                text=True
+            )
+            
+            st.success("Test Suite Completed!")
+            
+            st.markdown("### Execution Logs")
+            # Determine if passed or failed
+            if result.returncode == 0:
+                st.code(result.stdout, language="bash")
+            else:
+                st.code(result.stdout + "\n" + result.stderr, language="bash")
