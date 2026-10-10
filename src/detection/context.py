@@ -162,6 +162,25 @@ TABLE_HEADER_MAP: Dict[str, EntityType] = {
     "last name": EntityType.PERSON,
     "holder name": EntityType.PERSON,
     "name": EntityType.PERSON,
+    "users": EntityType.PERSON,
+    "user": EntityType.PERSON,
+    "author": EntityType.PERSON,
+    "author(s)": EntityType.PERSON,
+    "authors": EntityType.PERSON,
+    "reviewer": EntityType.PERSON,
+    "peer reviewer": EntityType.PERSON,
+    "qa reviewer": EntityType.PERSON,
+    "client contact": EntityType.PERSON,
+    "contact": EntityType.PERSON,
+    "owner": EntityType.PERSON,
+    "approver": EntityType.PERSON,
+    "contributor": EntityType.PERSON,
+    "attendee": EntityType.PERSON,
+    "attendees": EntityType.PERSON,
+    "stakeholder": EntityType.PERSON,
+    "prepared by": EntityType.PERSON,
+    "reviewed by": EntityType.PERSON,
+    "approved by": EntityType.PERSON,
     "ssn": EntityType.SSN,
     "social security": EntityType.SSN,
     "social security number": EntityType.SSN,
@@ -220,10 +239,22 @@ TABLE_HEADER_MAP: Dict[str, EntityType] = {
 
 # Negative blocklist keywords for table headers: headers with these words are process/system metadata
 SYSTEM_HEADER_EXCLUSIONS: Set[str] = {
-    "workflow", "sla", "stage", "task", "questionnaire", "file", "report",
+    "workflow", "workflows", "sla", "stage", "task", "questionnaire", "file", "report",
     "question", "step", "role", "service", "system", "rule", "code",
     "status", "version", "category", "type", "description", "module", "field",
+    "user groups", "group", "tier", "security",
 }
+
+# Common enterprise terms, tools, or ordinary words that are NOT PII
+NON_PII_TERMS: Set[str] = {
+    "workflow", "workflows", "security", "information security", "cybersecurity",
+    "tier 1", "tier 2", "tier 3", "tier 1 third", "tier",
+    "annual", "annually", "quarterly", "monthly", "semi-annual",
+    "privacy shield", "privacy", "shield", "ironclad", "torii", "onetrust", "servicenow", "workday",
+    "salesforce", "jira", "cadence", "cadence's", "cadence financial group", "optiv",
+}
+
+EMAIL_STRICT_PATTERN = re.compile(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b")
 
 
 @dataclass
@@ -469,13 +500,46 @@ class ContextEngine:
             if entity_type == EntityType.PERSON and is_system_header:
                 continue
 
-            # Syntactic integrity check for PERSON:
-            # Person names must not be multiline paragraphs, pure numbers, or longer than 60 chars
-            if entity_type == EntityType.PERSON:
-                if len(cell_text) > 60 or "\n" in cell_text or sum(c.isalpha() for c in cell_text) < 2 or cell_text.isdigit():
+            if entity_type == EntityType.EMAIL:
+                # STRICT EMAIL validation: must match valid email format
+                if not EMAIL_STRICT_PATTERN.search(cell_text):
                     continue
 
+            if entity_type == EntityType.PERSON:
+                # Disaggregate multiline or comma-separated names within the cell
+                raw_lines = [line.strip() for line in re.split(r"[\n,;]+", cell_text) if line.strip()]
+                for cand in raw_lines:
+                    clean_cand = cand.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+                    if not clean_cand or len(clean_cand) < 2 or len(clean_cand) > 50:
+                        continue
+                    if clean_cand.lower() in NON_PII_TERMS or clean_cand.isdigit() or sum(c.isalpha() for c in clean_cand) < 2:
+                        continue
+                    cand_start = block.text.find(cand)
+                    if cand_start == -1:
+                        cand_start = 0
+                    cand_end = cand_start + len(cand)
+
+                    entity = PIIEntity(
+                        entity_type=EntityType.PERSON,
+                        value=cand,
+                        source=DetectionSource.CONTEXT,
+                        detection_layers=["context"],
+                        confidence=0.85,  # Validated name under person header = high confidence
+                        page=block.page,
+                        bbox=block.bbox,
+                        text_start=cand_start,
+                        text_end=cand_end,
+                        block_id=block.block_id,
+                        context_cues=[f"table_header:{header}"],
+                    )
+                    entities.append(entity)
+                if entities:
+                    break
+                continue
+
             if entity_type:
+                if clean_cell.lower() in NON_PII_TERMS:
+                    continue
                 entity = PIIEntity(
                     entity_type=entity_type,
                     value=cell_text,
@@ -556,9 +620,25 @@ class ContextEngine:
                     }:
                         continue
 
+                    # Check against known enterprise/domain non-PII terms
+                    if clean_val.lower() in NON_PII_TERMS:
+                        continue
+
+                    # STRICT check for EMAIL: must match real email regex with @ and domain
+                    if entity_type == EntityType.EMAIL:
+                        if not EMAIL_STRICT_PATTERN.search(potential_value):
+                            continue
+
                     # Syntactic validation for PERSON
                     if entity_type == EntityType.PERSON:
                         if sum(c.isalpha() for c in potential_value) < 2 or potential_value.isdigit():
+                            continue
+                        if any(term in potential_value.lower() for term in ["workflow", "security", "tier", "privacy shield", "ironclad", "torii", "cadence", "optiv"]):
+                            continue
+
+                    # Syntactic validation for DOB: must contain numbers
+                    if entity_type == EntityType.DOB:
+                        if not any(c.isdigit() for c in potential_value):
                             continue
 
                     val_start = match.start(1)

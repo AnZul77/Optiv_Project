@@ -193,14 +193,23 @@ class DOCXExtractor:
             # First row considered header row
             header_row = table.rows[0]
             headers = [cell.text.strip() for cell in header_row.cells]
+            is_two_col = len(header_row.cells) == 2
+            has_distinct_headers = any(bool(h) for h in headers)
 
             extracted_rows: List[List[TableCell]] = []
+            start_row = 1 if has_distinct_headers else 0
 
-            for r_idx, row in enumerate(table.rows[1:], start=1):
+            for r_idx, row in enumerate(table.rows[start_row:], start=start_row):
                 cell_objs = []
+                row_label = row.cells[0].text.strip() if len(row.cells) > 0 else ""
                 for c_idx, cell in enumerate(row.cells):
                     val = cell.text.strip()
-                    hdr_name = headers[c_idx] if c_idx < len(headers) else f"Column_{c_idx+1}"
+                    if is_two_col and c_idx == 1 and row_label:
+                        hdr_name = row_label
+                    elif c_idx < len(headers) and headers[c_idx]:
+                        hdr_name = headers[c_idx]
+                    else:
+                        hdr_name = f"Column_{c_idx+1}"
                     cell_objs.append(TableCell(
                         row_idx=r_idx,
                         col_idx=c_idx,

@@ -80,6 +80,13 @@ def sanitize_document(input_path: str, output_path: str = None) -> str:
         if raw_val and raw_val.strip() and len(raw_val.strip()) >= 2:
             clean = raw_val.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
             if clean and len(clean) >= 2:
+                from src.detection.context import NON_PII_TERMS, EMAIL_STRICT_PATTERN
+                if clean.lower() in NON_PII_TERMS:
+                    continue
+                if ent.type == "EMAIL" and not EMAIL_STRICT_PATTERN.search(clean):
+                    continue
+                if ent.type == "DOB" and not any(c.isdigit() for c in clean):
+                    continue
                 replacements[raw_val] = f"[REDACTED_{ent.type}]"
 
     print(f"[*] Step 3: Redacting and Reconstructing Artifact...")

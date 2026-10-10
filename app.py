@@ -221,6 +221,14 @@ if page == "Live Security Gateway":
                         if not clean or len(clean) < 2:
                             continue
 
+                        from src.detection.context import NON_PII_TERMS, EMAIL_STRICT_PATTERN
+                        if clean.lower() in NON_PII_TERMS:
+                            continue
+                        if ent.type == "EMAIL" and not EMAIL_STRICT_PATTERN.search(clean):
+                            continue
+                        if ent.type == "DOB" and not any(c.isdigit() for c in clean):
+                            continue
+
                         mask_token = f"[REDACTED_{ent.type}]"
                         replacements[raw_val] = mask_token
                         color_cls = "highlight-red" if ent.risk == "CRITICAL" else "highlight-cyan"

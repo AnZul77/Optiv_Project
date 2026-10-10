@@ -19,10 +19,11 @@ Supports toggling individual layers for ablation experiments (Day 16).
 
 from __future__ import annotations
 
+import re
 import logging
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from src.schema.entities import (
     ContentBlock,
@@ -30,7 +31,10 @@ from src.schema.entities import (
     DetectionResult,
     DetectionMetadata,
     PIIEntity,
+    EntityType,
+    DetectionSource,
 )
+from src.detection.context import NON_PII_TERMS, EMAIL_STRICT_PATTERN
 from src.detection.regex import RegexEngine
 from src.detection.ner import NEREngine
 from src.detection.context import ContextEngine
@@ -223,6 +227,11 @@ class DetectionPipeline:
         )
 
         # =====================================================================
+        # Precision Filtering & Document-Wide Name Propagation
+        # =====================================================================
+        all_entities = self._clean_and_propagate_entities(all_entities, blocks)
+
+        # =====================================================================
         # Build Result
         # =====================================================================
         elapsed_ms = (time.time() - start_time) * 1000
@@ -347,3 +356,88 @@ class DetectionPipeline:
             }
 
         return doc
+
+    def _clean_and_propagate_entities(
+        self, entities: List[PIIEntity], blocks: List[ContentBlock]
+    ) -> List[PIIEntity]:
+        """
+        1. Filters out false positives (ordinary words, non-PII terms, invalid emails).
+        2. Collects confirmed PERSON names and propagates them uniformly across all document blocks.
+        3. Resolves and deduplicates the augmented entity list.
+        """
+        cleaned: List[PIIEntity] = []
+        for e in entities:
+            clean_val = e.value.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+            if not clean_val or len(clean_val) < 2:
+                continue
+
+            # Hard filter non-PII terms
+            if clean_val.lower() in NON_PII_TERMS:
+                continue
+
+            # Strict email check: MUST match email pattern
+            if e.entity_type == EntityType.EMAIL:
+                if not EMAIL_STRICT_PATTERN.search(clean_val):
+                    continue
+
+            # Date check: DOB must contain digits
+            if e.entity_type == EntityType.DOB:
+                if not any(c.isdigit() for c in clean_val) or clean_val.lower() in NON_PII_TERMS:
+                    continue
+
+            # Person check: must not contain corporate or workflow terms
+            if e.entity_type == EntityType.PERSON:
+                lower = clean_val.lower()
+                if any(term in lower for term in ["workflow", "security", "tier", "privacy shield", "ironclad", "torii", "cadence", "optiv", "onetrust"]):
+                    continue
+
+            cleaned.append(e)
+
+        # Collect confirmed person names
+        confirmed_names: Set[str] = set()
+        for e in cleaned:
+            if e.entity_type == EntityType.PERSON and e.confidence >= 0.60:
+                raw_val = e.value.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+                for line in raw_val.split("\n"):
+                    cand = line.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+                    if len(cand) >= 3 and cand.lower() not in NON_PII_TERMS and sum(c.isalpha() for c in cand) >= 2:
+                        confirmed_names.add(cand)
+
+        if not confirmed_names:
+            return cleaned
+
+        # Propagate confirmed names across all blocks
+        propagated: List[PIIEntity] = list(cleaned)
+        block_entities_map: Dict[str, List[Tuple[int, int]]] = defaultdict(list)
+        for e in cleaned:
+            block_entities_map[e.block_id].append((e.text_start, e.text_end))
+
+        for block in blocks:
+            if not block.text or not block.text.strip():
+                continue
+            for name in confirmed_names:
+                pattern = re.compile(rf"\b{re.escape(name)}\b", re.IGNORECASE)
+                for m in pattern.finditer(block.text):
+                    m_start, m_end = m.start(), m.end()
+                    existing_spans = block_entities_map.get(block.block_id, [])
+                    # Check if already covered by an entity in this block
+                    if any(s <= m_start and m_end <= e for s, e in existing_spans):
+                        continue
+
+                    new_entity = PIIEntity(
+                        entity_type=EntityType.PERSON,
+                        value=block.text[m_start:m_end],
+                        source=DetectionSource.CONTEXT,
+                        detection_layers=["context"],
+                        confidence=0.92,
+                        page=block.page,
+                        bbox=block.bbox,
+                        text_start=m_start,
+                        text_end=m_end,
+                        block_id=block.block_id,
+                        context_cues=["document_wide_propagation"],
+                    )
+                    propagated.append(new_entity)
+                    existing_spans.append((m_start, m_end))
+
+        return self.resolver.resolve(propagated)

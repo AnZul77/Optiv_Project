@@ -24,8 +24,9 @@ Design Principles:
 
 from __future__ import annotations
 
+import re
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from src.schema.entities import (
     PIIEntity,
@@ -53,7 +54,6 @@ PRESIDIO_TYPE_MAP: Dict[str, EntityType] = {
     "US_DRIVER_LICENSE": EntityType.EMPLOYEE_ID,  # Mapped as org ID for now
     "US_ITIN": EntityType.TAX_ID,
     "LOCATION": EntityType.ADDRESS,
-    "DATE_TIME": EntityType.DOB,
     "NRP": EntityType.PERSON,  # Nationality/religious/political group
     "UK_NHS": EntityType.NINO,
 
@@ -69,6 +69,15 @@ PRESIDIO_TYPE_MAP: Dict[str, EntityType] = {
 
 # Entity types we want Presidio to detect (filter out noise)
 SUPPORTED_PRESIDIO_ENTITIES: List[str] = list(PRESIDIO_TYPE_MAP.keys())
+
+# Enterprise and domain terms that are not PII
+NON_PII_TERMS: Set[str] = {
+    "workflow", "workflows", "security", "information security", "cybersecurity",
+    "tier 1", "tier 2", "tier 3", "tier 1 third", "tier",
+    "annual", "annually", "quarterly", "monthly", "semi-annual",
+    "privacy shield", "privacy", "shield", "ironclad", "torii", "onetrust", "servicenow", "workday",
+    "salesforce", "jira", "cadence", "cadence's", "cadence financial group", "optiv",
+}
 
 
 class NEREngine:
@@ -214,12 +223,21 @@ class NEREngine:
                 if not clean_val or len(clean_val) < 2:
                     continue
 
+                # Hard filter for enterprise/domain non-PII terms
+                if clean_val.lower() in NON_PII_TERMS:
+                    continue
+
                 # False positive filtering for PERSON
                 if entity_type == EntityType.PERSON:
                     # Pure numbers or all-caps short acronyms (AI, IT, SLA, TPRM) are not people
                     if clean_val.isdigit() or (clean_val.isupper() and len(clean_val) <= 4):
                         continue
                     if sum(c.isalpha() for c in clean_val) < 2:
+                        continue
+
+                    # Filter out terms containing non-PII keywords
+                    lower_val = clean_val.lower()
+                    if any(term in lower_val for term in ["workflow", "security", "tier", "privacy shield", "ironclad", "torii", "cadence", "optiv", "onetrust"]):
                         continue
 
                     # Check if this span was classified as an Organization by spaCy
@@ -242,16 +260,48 @@ class NEREngine:
                             logger.debug("Filtered out corporate subject: '%s'", clean_val)
                             continue
 
+                    # If Presidio/spaCy lumped multiple names separated by newlines
+                    if "\n" in value:
+                        sub_parts = [line.strip() for line in value.split("\n") if line.strip()]
+                        for sub in sub_parts:
+                            clean_sub = sub.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+                            if not clean_sub or len(clean_sub) < 2 or clean_sub.lower() in NON_PII_TERMS or sum(c.isalpha() for c in clean_sub) < 2:
+                                continue
+                            if any(term in clean_sub.lower() for term in ["workflow", "security", "tier", "privacy shield"]):
+                                continue
+                            sub_start = block.text.find(sub, result.start)
+                            if sub_start == -1:
+                                sub_start = result.start
+                            sub_end = sub_start + len(sub)
+                            entities.append(PIIEntity(
+                                entity_type=EntityType.PERSON,
+                                value=sub,
+                                source=DetectionSource.NER,
+                                detection_layers=["ner"],
+                                confidence=result.score,
+                                page=block.page,
+                                bbox=block.bbox,
+                                text_start=sub_start,
+                                text_end=sub_end,
+                                block_id=block.block_id,
+                            ))
+                        continue
+
                 # False positive filtering for ADDRESS
                 if entity_type == EntityType.ADDRESS:
-                    # Standalone country/acronym codes are not physical street addresses
-                    if clean_val.lower() in {"ai", "us", "uk", "eu", "apac", "emea", "na", "sa"} or len(clean_val) <= 2:
+                    # Standalone country/acronym codes and tech/org brands are not street addresses
+                    if clean_val.lower() in {"ai", "us", "uk", "eu", "apac", "emea", "na", "sa", "cadence", "torii", "optiv", "onetrust", "ironclad"} or len(clean_val) <= 2:
+                        continue
+
+                # Strict validation for EMAIL
+                if entity_type == EntityType.EMAIL:
+                    if "@" not in clean_val or not re.search(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b", clean_val):
                         continue
 
                 # False positive filtering for DOB
                 if entity_type == EntityType.DOB:
                     # Generic full paragraphs or long text blocks are not birth dates
-                    if len(clean_val) > 35:
+                    if len(clean_val) > 35 or not any(c.isdigit() for c in clean_val):
                         continue
 
                 entity = PIIEntity(
@@ -268,6 +318,26 @@ class NEREngine:
                 )
 
                 entities.append(entity)
+
+            # Detect initials names pattern (e.g. KC Burney, DK Koran) in block text
+            initial_pattern = re.compile(r"\b[A-Z]{1,2}\.?\s+[A-Z][a-z]+\b")
+            for m in initial_pattern.finditer(block.text):
+                cand_name = m.group(0).strip()
+                if cand_name.lower() not in NON_PII_TERMS and not any(s <= m.start() < e for s, e in org_spans):
+                    # Check if already covered
+                    if not any(e.text_start <= m.start() and m.end() <= e.text_end for e in entities):
+                        entities.append(PIIEntity(
+                            entity_type=EntityType.PERSON,
+                            value=cand_name,
+                            source=DetectionSource.NER,
+                            detection_layers=["ner"],
+                            confidence=0.88,
+                            page=block.page,
+                            bbox=block.bbox,
+                            text_start=m.start(),
+                            text_end=m.end(),
+                            block_id=block.block_id,
+                        ))
 
             logger.info(
                 "NEREngine detected %d entities in block '%s' (page %d)",

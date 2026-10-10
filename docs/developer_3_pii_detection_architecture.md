@@ -92,7 +92,22 @@ src/
     - Favor higher-specificity types (`SSN` > `GENERIC_NUMBER`, `PERSON` > `ORG`).
     - Compute composite confidence:
       $$\text{Confidence} = 0.35 \cdot C_{\text{regex}} + 0.30 \cdot C_{\text{NER}} + 0.20 \cdot C_{\text{context}} + 0.15 \cdot C_{\text{validator}}$$
-  - Emit unified `List[EntityAnnotation]` attached to `CanonicalDocument.entities`.
+### 4.6 Precision, Disaggregation & Document-Wide Propagation Enhancements
+- **Multiline & Key-Value Table Disaggregation**:
+  - Automatically disaggregates multiline (`\n`) and comma-separated person names within table cells (e.g. `Daniela Figueroa\nBridgett Gatewood\nKC Burney`).
+  - Supports 2-column key-value / property tables (e.g. version control / metadata) by dynamically inheriting attribute labels (`Client Contact`, `Author(s)`, `Peer Reviewer`).
+- **Initials & Two-Part Name Support**:
+  - Regex and NER support for initials patterns: `\b[A-Z]{1,2}\.?\s+[A-Z][a-z]+\b` (`KC Burney`, `DK Koran`).
+- **Document-Wide Entity Propagation**:
+  - Collects all confirmed `PERSON` entities document-wide.
+  - Automatically scans every block, table cell, and version control section using word boundaries `\b<name>\b` to enforce 100% uniform detection and identical placeholder replacement.
+- **Enterprise & Non-PII Allowlist Filtering**:
+  - Discards false positives for ordinary operational words (`"Workflow"`, `"Security"`, `"Tier 1"`, `"annual"`, `"Privacy Shield"`) and tool names (`"Ironclad"`, `"Torii"`).
+  - Explicitly preserves organization names like `"Cadence"` in body text as non-PII.
+- **Strict Email Pattern Validation**:
+  - Enforces that `EMAIL` entities are ONLY emitted when the string strictly matches email syntax with `@` and valid domain, eliminating stray email tags on cue words (`or email address`, `ID of vendor`).
+- **Calendar Date Preservation**:
+  - Generic calendar dates (e.g. `September 16, 2026`) are preserved intact as in the source. `DOB` is only flagged when explicit birth cues (`dob:`, `born`) are present.
 
 ---
 
@@ -111,10 +126,11 @@ src/
 
 ## 6. Developer 3 Implementation Checklist
 
-- [ ] Define taxonomy and scoring weights in `src/schema/entities.py`
-- [ ] Implement deterministic patterns in `src/detection/regex.py`
-- [ ] Integrate Presidio + spaCy NER in `src/detection/ner.py`
-- [ ] Implement sliding window & table header context injector in `src/detection/context.py`
-- [ ] Implement Luhn, Verhoeff, and phone validators in `src/detection/validators.py`
-- [ ] Implement span conflict resolver and deduplicator in `src/detection/resolver.py`
-- [ ] Write unit tests in `tests/unit/test_detection.py` and `tests/unit/test_resolver.py`
+- [x] Define taxonomy and scoring weights in `src/schema/entities.py`
+- [x] Implement deterministic patterns in `src/detection/regex.py`
+- [x] Integrate Presidio + spaCy NER in `src/detection/ner.py`
+- [x] Implement sliding window & table header context injector in `src/detection/context.py`
+- [x] Implement Luhn, Verhoeff, and phone validators in `src/detection/validators.py`
+- [x] Implement span conflict resolver and deduplicator in `src/detection/resolver.py`
+- [x] Implement document-wide entity propagation & non-PII filters in `src/detection/pipeline.py`
+- [x] Write unit tests in `tests/unit/test_detection.py`, `tests/unit/test_resolver.py`, and `tests/unit/test_precision_fixes.py`
