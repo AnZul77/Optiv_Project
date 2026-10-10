@@ -100,14 +100,16 @@ class TextRedactor:
         block_char: str = "█",
         min_docx_target_length: int = 3,
     ):
-        if mode not in ("token", "block"):
-            raise ValueError("mode must be 'token' or 'block'")
+        if mode not in ("token", "block", "pseudonym"):
+            raise ValueError("mode must be 'token', 'block', or 'pseudonym'")
         if not block_char:
             raise ValueError("block_char cannot be empty")
         self.mode = mode
         self.token_format = token_format
         self.block_char = block_char
         self.min_docx_target_length = min_docx_target_length
+        self._pseudonym_map: Dict[str, str] = {}
+        self._type_counters: Dict[str, int] = {}
 
     @classmethod
     def from_policy(cls, policy: Any) -> "TextRedactor":
@@ -121,9 +123,16 @@ class TextRedactor:
             min_docx_target_length=int(settings["min_docx_target_length"]),
         )
 
-    def token_for(self, entity_type: str, length: int) -> str:
+    def token_for(self, entity_type: str, length: int = 0, raw_value: Optional[str] = None) -> str:
         if self.mode == "block":
             return self.block_char * max(1, length)
+        if self.mode == "pseudonym" and raw_value:
+            clean_raw = raw_value.strip().lower()
+            if clean_raw not in self._pseudonym_map:
+                curr = self._type_counters.get(entity_type, 0) + 1
+                self._type_counters[entity_type] = curr
+                self._pseudonym_map[clean_raw] = f"[{entity_type}_{curr}]"
+            return self._pseudonym_map[clean_raw]
         return self.token_format.format(type=entity_type or "PII")
 
     # ------------------------------------------------------------------ core
@@ -181,7 +190,7 @@ class TextRedactor:
             # Label a merged span with its highest-risk member's type.
             label_entity = max(members, key=lambda e: risk_rank(entity_risk_name(e)))
             entity_type = entity_type_name(label_entity)
-            replacement = self.token_for(entity_type, end - start)
+            replacement = self.token_for(entity_type, end - start, raw_value=text[start:end])
 
             prefix = text[cursor:start]
             pieces.append(prefix)
@@ -273,7 +282,7 @@ class TextRedactor:
             if len(target.strip()) < self.min_docx_target_length:
                 skipped.append(entity_id)
                 continue
-            replacements[target] = self.token_for(entity_type_name(entity), len(target))
+            replacements[target] = self.token_for(entity_type_name(entity), len(target), raw_value=target)
 
         return replacements, skipped
 
@@ -320,7 +329,7 @@ def redact_text_by_values(
     case_sensitive: bool = True,
 ) -> str:
     """
-    Replace specific text strings with replacement tokens.
+    Replace specific text strings with replacement tokens using word boundaries.
     """
     if not text or not replacements:
         return text
@@ -331,8 +340,14 @@ def redact_text_by_values(
     for raw_val, mask in sorted_items:
         if not raw_val or not raw_val.strip():
             continue
+        clean = raw_val.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+        if not clean or len(clean) < 2:
+            continue
+
         flags = 0 if case_sensitive else re.IGNORECASE
-        escaped = re.escape(raw_val)
-        result = re.sub(escaped, mask, result, flags=flags)
+        prefix = r"\b" if raw_val[0].isalnum() else ""
+        suffix = r"\b" if raw_val[-1].isalnum() else ""
+        pattern = f"{prefix}{re.escape(raw_val)}{suffix}"
+        result = re.sub(pattern, mask, result, flags=flags)
 
     return result

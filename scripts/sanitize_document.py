@@ -60,14 +60,27 @@ def sanitize_document(input_path: str, output_path: str = None) -> str:
     print(f"[+] Detection complete: {total_entities} entities detected.")
     print(f"    Risk Breakdown: {risk_summary}")
 
-    # Build replacement mapping
+    # Apply Policy Engine to filter actions (REDACT vs ALLOW)
+    from src.policy.policy import PolicyEngine
+    policy_engine = PolicyEngine()
+    policy_engine.apply(canonical_doc.entities)
+
+    # Build replacement mapping for entities requiring redaction
     replacements = {}
     for ent in canonical_doc.entities:
+        action = getattr(ent, "action", "REDACT")
+        if hasattr(action, "value"):
+            action = action.value
+        if str(action).upper() == "ALLOW":
+            continue
+
         raw_val = ent.context.get("raw_value") if isinstance(ent.context, dict) else ""
         if not raw_val and hasattr(ent, "raw_value"):
             raw_val = getattr(ent, "raw_value")
-        if raw_val and raw_val.strip():
-            replacements[raw_val] = f"[REDACTED:{ent.type}]"
+        if raw_val and raw_val.strip() and len(raw_val.strip()) >= 2:
+            clean = raw_val.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+            if clean and len(clean) >= 2:
+                replacements[raw_val] = f"[REDACTED_{ent.type}]"
 
     print(f"[*] Step 3: Redacting and Reconstructing Artifact...")
     if file_ext == ".docx":

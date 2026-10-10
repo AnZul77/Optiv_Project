@@ -55,17 +55,22 @@ The PII Security Firewall solves this through an **OCR-first, multimodal, defens
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 4. Policy Engine & Risk Model                               │
+│ 4. Policy Engine & Relational Privacy Model                 │
 │    - config/policy.yaml evaluation                          │
+│    - Relational Privacy Engine (Subject-Verb-Object triples)│
+│    - Selective Redaction: Public facts preserved vs. private│
+│      transactions redacted                                  │
 │    - Critical Entity Dominance rule (SSN/PAN -> MAX Risk)   │
+│    - Dynamic Organization/GPE auto-disambiguation (Optiv)   │
 │    - Business reference allow-list filtering (INC-*, RSK-*) │
-│    - Gate Action: REDACT vs. BLOCK                          │
+│    - Gate Action: REDACT vs. ALLOW vs. BLOCK                │
 └──────────────────────────────┬──────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 5. Sanitized Document Reconstruction                        │
-│    - Native Word/PDF text replacement ([REDACTED_TYPE])     │
+│    - Consistent Pseudonymization ([PERSON_1], [AMOUNT_1])   │
+│    - Strict word-boundary anchored regex (\b<word>\b)       │
 │    - True pixel burning (Opaque black boxes on images)      │
 │    - Embedded image replacement inside OpenXML package      │
 │    - Document integrity validation (Open-and-read check)    │

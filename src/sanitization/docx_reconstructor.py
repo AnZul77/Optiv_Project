@@ -47,15 +47,29 @@ class DOCXReconstructor:
         if not os.path.exists(input_path):
             return False, f"Source file not found: {input_path}"
 
-        # Filter and sort targets by length descending for greedy replacement
-        valid_targets = [k for k in replacements.keys() if k and k.strip()]
+        # Filter and sort targets by length descending for greedy replacement.
+        # Discard pure punctuation, bare symbols, or single-character noise.
+        valid_targets = []
+        for k in replacements.keys():
+            if not k:
+                continue
+            clean = k.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+            if clean and len(clean) >= 2:
+                valid_targets.append(k)
+
         if not valid_targets:
             shutil.copy2(input_path, output_path)
             return True, None
 
         import re
         sorted_targets = sorted(valid_targets, key=len, reverse=True)
-        regex_pattern = re.compile("|".join(re.escape(k) for k in sorted_targets))
+
+        def _make_boundary_pattern(token: str) -> str:
+            prefix = r"\b" if token[0].isalnum() else ""
+            suffix = r"\b" if token[-1].isalnum() else ""
+            return f"{prefix}{re.escape(token)}{suffix}"
+
+        regex_pattern = re.compile("|".join(_make_boundary_pattern(k) for k in sorted_targets))
 
         def _sub_func(match: re.Match) -> str:
             return replacements.get(match.group(0), match.group(0))

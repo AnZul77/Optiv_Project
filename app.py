@@ -195,18 +195,33 @@ if page == "Live Security Gateway":
                 m4.metric("High Risk", risk_summary.get("HIGH", 0))
                 m5.metric("Latency", f"{proc_time:.0f} ms")
 
+                # Apply Policy Engine to filter actions (REDACT vs ALLOW)
+                from src.policy.policy import PolicyEngine
+                policy_engine = PolicyEngine()
+                policy_engine.apply(canonical_doc.entities)
+
                 # Build Replacements Mapping
                 replacements = {}
                 highlight_map = {}
                 entities_list = canonical_doc.entities or []
 
                 for ent in entities_list:
+                    action = getattr(ent, "action", "REDACT")
+                    if hasattr(action, "value"):
+                        action = action.value
+                    if str(action).upper() == "ALLOW":
+                        continue
+
                     raw_val = ent.context.get("raw_value") if isinstance(ent.context, dict) else ""
                     if not raw_val and hasattr(ent, "raw_value"):
                         raw_val = getattr(ent, "raw_value")
                     
-                    if raw_val and raw_val.strip():
-                        mask_token = f"[REDACTED:{ent.type}]"
+                    if raw_val and raw_val.strip() and len(raw_val.strip()) >= 2:
+                        clean = raw_val.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+                        if not clean or len(clean) < 2:
+                            continue
+
+                        mask_token = f"[REDACTED_{ent.type}]"
                         replacements[raw_val] = mask_token
                         color_cls = "highlight-red" if ent.risk == "CRITICAL" else "highlight-cyan"
                         highlight_map[raw_val] = f'<span class="{color_cls}">{html.escape(raw_val)}</span>'

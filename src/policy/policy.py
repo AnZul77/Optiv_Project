@@ -366,9 +366,21 @@ class PolicyEngine:
         self,
         config: Optional[PolicyConfig] = None,
         policy_path: Optional[str | Path] = None,
+        relational_engine: Any = None,
     ):
         self.config = config or PolicyConfig.load(policy_path)
         self._allow_list = [re.compile(p) for p in self.config.allow_list_patterns]
+        self.relational_engine = relational_engine
+
+    @property
+    def _relational(self):
+        if self.relational_engine is None:
+            try:
+                from src.policy.relational import RelationalPrivacyEngine
+                self.relational_engine = RelationalPrivacyEngine()
+            except Exception:
+                pass
+        return self.relational_engine
 
     # ------------------------------------------------------------------ allow-list
     def is_allow_listed(self, value: Optional[str]) -> bool:
@@ -399,7 +411,12 @@ class PolicyEngine:
         return "LOW" if risk == "NONE" else risk
 
     # ------------------------------------------------------------------ decisions
-    def evaluate_entity(self, entity: Any, raw_value: Optional[str] = None) -> PolicyDecision:
+    def evaluate_entity(
+        self,
+        entity: Any,
+        raw_value: Optional[str] = None,
+        sentence_text: Optional[str] = None,
+    ) -> PolicyDecision:
         entity_type = entity_type_name(entity) or "UNKNOWN"
         confidence = _safe_confidence(getattr(entity, "confidence", 0.0))
         entity_id = str(getattr(entity, "entity_id", ""))
@@ -415,6 +432,20 @@ class PolicyEngine:
         if self.is_allow_listed(value):
             return PolicyDecision(entity_id, entity_type, page, risk, "ALLOW", confidence,
                                   "allow_list_match", allow_listed=True)
+
+        # Contextual Relational Privacy: Check if a PERSON entity is in a benign/public fact context
+        sentence_context = sentence_text
+        context = getattr(entity, "context", None)
+        if not sentence_context and isinstance(context, dict):
+            sentence_context = context.get("sentence") or context.get("raw_text")
+
+        if entity_type == "PERSON" and value and sentence_context and self._relational:
+            rel_res = self._relational.assess_entity_in_sentence(str(sentence_context), str(value), "PERSON")
+            if not rel_res.is_sensitive:
+                return PolicyDecision(
+                    entity_id, entity_type, page, "LOW", "ALLOW", confidence,
+                    f"relational_privacy:{rel_res.reason}", allow_listed=True,
+                )
 
         rule = self.config.tiers[risk]
         if confidence >= rule.min_confidence_to_redact:

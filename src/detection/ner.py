@@ -178,6 +178,18 @@ class NEREngine:
         entities: List[PIIEntity] = []
 
         try:
+            # 1. Extract organization and non-person entity spans using spaCy
+            org_spans = set()
+            if self._nlp:
+                try:
+                    spacy_doc = self._nlp(block.text)
+                    for ent in spacy_doc.ents:
+                        if ent.label_ in ("ORG", "PRODUCT", "WORK_OF_ART", "LAW"):
+                            org_spans.add((ent.start_char, ent.end_char))
+                except Exception as nlp_err:
+                    logger.debug("spaCy span extraction note: %s", nlp_err)
+
+            # 2. Run Presidio Analyzer
             results = self._analyzer.analyze(
                 text=block.text,
                 entities=SUPPORTED_PRESIDIO_ENTITIES,
@@ -196,6 +208,51 @@ class NEREngine:
 
                 # Extract the matched value from text
                 value = block.text[result.start:result.end]
+                clean_val = value.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+
+                # Discard empty, pure symbol, or single-character noise
+                if not clean_val or len(clean_val) < 2:
+                    continue
+
+                # False positive filtering for PERSON
+                if entity_type == EntityType.PERSON:
+                    # Pure numbers or all-caps short acronyms (AI, IT, SLA, TPRM) are not people
+                    if clean_val.isdigit() or (clean_val.isupper() and len(clean_val) <= 4):
+                        continue
+                    if sum(c.isalpha() for c in clean_val) < 2:
+                        continue
+
+                    # Check if this span was classified as an Organization by spaCy
+                    if any(s <= result.start < e or result.start <= s < result.end for s, e in org_spans):
+                        logger.debug("Filtered out ORG entity misclassified as PERSON: '%s'", clean_val)
+                        continue
+
+                    # Common enterprise organizations and tech brands
+                    if clean_val.lower() in {"optiv", "onetrust", "cadence", "microsoft", "google", "apple", "amazon"}:
+                        continue
+
+                    # Single capitalized token without surname acting as corporate subject
+                    words = clean_val.split()
+                    if len(words) == 1 and result.score < 0.88:
+                        after_text = block.text[result.end:result.end + 50].lower()
+                        if any(w in after_text for w in [
+                            "is the", "delivering", "advisory", "solutions", "partner", "technologies",
+                            "services", "inc", "llc", "corp", "group", "platform", "software",
+                        ]):
+                            logger.debug("Filtered out corporate subject: '%s'", clean_val)
+                            continue
+
+                # False positive filtering for ADDRESS
+                if entity_type == EntityType.ADDRESS:
+                    # Standalone country/acronym codes are not physical street addresses
+                    if clean_val.lower() in {"ai", "us", "uk", "eu", "apac", "emea", "na", "sa"} or len(clean_val) <= 2:
+                        continue
+
+                # False positive filtering for DOB
+                if entity_type == EntityType.DOB:
+                    # Generic full paragraphs or long text blocks are not birth dates
+                    if len(clean_val) > 35:
+                        continue
 
                 entity = PIIEntity(
                     entity_type=entity_type,

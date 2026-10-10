@@ -150,7 +150,18 @@ SECTION_TRIGGERS: Dict[str, float] = {
 
 # Table header aliases — maps common header text to entity types
 TABLE_HEADER_MAP: Dict[str, EntityType] = {
-    # Direct matches
+    # Direct matches for people
+    "employee name": EntityType.PERSON,
+    "full name": EntityType.PERSON,
+    "person name": EntityType.PERSON,
+    "contact name": EntityType.PERSON,
+    "applicant": EntityType.PERSON,
+    "candidate": EntityType.PERSON,
+    "staff name": EntityType.PERSON,
+    "first name": EntityType.PERSON,
+    "last name": EntityType.PERSON,
+    "holder name": EntityType.PERSON,
+    "name": EntityType.PERSON,
     "ssn": EntityType.SSN,
     "social security": EntityType.SSN,
     "social security number": EntityType.SSN,
@@ -163,11 +174,6 @@ TABLE_HEADER_MAP: Dict[str, EntityType] = {
     "mobile number": EntityType.PHONE,
     "telephone": EntityType.PHONE,
     "tel": EntityType.PHONE,
-    "name": EntityType.PERSON,
-    "employee name": EntityType.PERSON,
-    "full name": EntityType.PERSON,
-    "first name": EntityType.PERSON,
-    "last name": EntityType.PERSON,
     "dob": EntityType.DOB,
     "date of birth": EntityType.DOB,
     "birth date": EntityType.DOB,
@@ -210,6 +216,13 @@ TABLE_HEADER_MAP: Dict[str, EntityType] = {
     "national insurance": EntityType.NINO,
     "tax id": EntityType.TAX_ID,
     "tin": EntityType.TAX_ID,
+}
+
+# Negative blocklist keywords for table headers: headers with these words are process/system metadata
+SYSTEM_HEADER_EXCLUSIONS: Set[str] = {
+    "workflow", "sla", "stage", "task", "questionnaire", "file", "report",
+    "question", "step", "role", "service", "system", "rule", "code",
+    "status", "version", "category", "type", "description", "module", "field",
 }
 
 
@@ -401,30 +414,66 @@ class ContextEngine:
 
     def _table_header_propagation(self, block: ContentBlock) -> List[PIIEntity]:
         """
-        Infer entity type from table column headers.
+        Infer entity type from table column headers for a specific table cell.
 
-        If a block originates from a table cell and the column header
-        maps to a known entity type, create an entity for the cell value.
+        Ensures:
+        1. Only the header matching this cell's specific column is evaluated.
+        2. System/process headers (SLA Name, Workflow Name, etc.) are excluded.
+        3. Cells with punctuation, placeholders, or pure numbers are never tagged as PERSON.
         """
         if not block.table_context or not block.table_context.column_headers:
             return []
 
-        entities: List[PIIEntity] = []
         cell_text = block.text.strip()
-
-        if not cell_text:
+        clean_cell = cell_text.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+        if not clean_cell or len(clean_cell) < 2:
             return []
 
-        for header in block.table_context.column_headers:
+        if clean_cell.lower() in {"n/a", "na", "none", "null", "tbd", "yes", "no", "true", "false", "-", "--", "."}:
+            return []
+
+        # Determine target header(s) for this specific cell
+        candidate_headers: List[str] = []
+        if block.table_context.header_name and block.table_context.header_name.strip():
+            candidate_headers = [block.table_context.header_name.strip()]
+        elif 0 <= block.table_context.col_index < len(block.table_context.column_headers):
+            candidate_headers = [block.table_context.column_headers[block.table_context.col_index].strip()]
+        elif len(block.table_context.column_headers) == 1:
+            candidate_headers = [block.table_context.column_headers[0].strip()]
+        else:
+            candidate_headers = [h.strip() for h in block.table_context.column_headers if h.strip()]
+
+        entities: List[PIIEntity] = []
+
+        for header in candidate_headers:
             header_lower = header.strip().lower()
+            if not header_lower or len(header_lower) < 2:
+                continue
+
+            # Skip process/system metadata headers from being interpreted as personal PII
+            is_system_header = any(ex in header_lower for ex in SYSTEM_HEADER_EXCLUSIONS)
+
             entity_type = self.table_header_map.get(header_lower)
 
             if entity_type is None:
                 # Try fuzzy matching: check if any key is a substring of the header
                 for key, etype in self.table_header_map.items():
-                    if key in header_lower or header_lower in key:
+                    if key in header_lower or (len(header_lower) >= 4 and header_lower in key):
+                        # If the matched type is PERSON but the header is a system artifact, skip it!
+                        if etype == EntityType.PERSON and is_system_header:
+                            continue
                         entity_type = etype
                         break
+
+            # If it's a system header and mapped to PERSON, reject it
+            if entity_type == EntityType.PERSON and is_system_header:
+                continue
+
+            # Syntactic integrity check for PERSON:
+            # Person names must not be multiline paragraphs, pure numbers, or longer than 60 chars
+            if entity_type == EntityType.PERSON:
+                if len(cell_text) > 60 or "\n" in cell_text or sum(c.isalpha() for c in cell_text) < 2 or cell_text.isdigit():
+                    continue
 
             if entity_type:
                 entity = PIIEntity(
@@ -446,6 +495,8 @@ class ContextEngine:
                     "Table header '%s' → entity type %s for value '%s'",
                     header, entity_type.value, cell_text[:20],
                 )
+                # Found valid mapping for this cell, no need to check other headers
+                break
 
         return entities
 
@@ -493,15 +544,22 @@ class ContextEngine:
                     potential_value = match.group(1).strip()
                     # Strip trailing punctuation (. , ; :)
                     potential_value = potential_value.rstrip(".,;:")
+                    clean_val = potential_value.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
 
-                    if not potential_value or len(potential_value) < 2 or len(potential_value) > 60:
+                    if not clean_val or len(clean_val) < 2 or len(potential_value) > 60:
                         continue
 
-                    # Avoid common stopwords
+                    # Avoid common stopwords and placeholders
                     if potential_value.lower() in {
                         "the", "a", "an", "on", "in", "at", "to", "for", "of", "and", "or", "not", "is", "was",
+                        "n/a", "na", "none", "null", "tbd", "undefined",
                     }:
                         continue
+
+                    # Syntactic validation for PERSON
+                    if entity_type == EntityType.PERSON:
+                        if sum(c.isalpha() for c in potential_value) < 2 or potential_value.isdigit():
+                            continue
 
                     val_start = match.start(1)
                     val_end = val_start + len(potential_value)
