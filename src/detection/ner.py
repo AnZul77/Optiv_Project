@@ -70,14 +70,40 @@ PRESIDIO_TYPE_MAP: Dict[str, EntityType] = {
 # Entity types we want Presidio to detect (filter out noise)
 SUPPORTED_PRESIDIO_ENTITIES: List[str] = list(PRESIDIO_TYPE_MAP.keys())
 
-# Enterprise and domain terms that are not PII
-NON_PII_TERMS: Set[str] = {
-    "workflow", "workflows", "security", "information security", "cybersecurity",
-    "tier 1", "tier 2", "tier 3", "tier 1 third", "tier",
-    "annual", "annually", "quarterly", "monthly", "semi-annual",
-    "privacy shield", "privacy", "shield", "ironclad", "torii", "onetrust", "servicenow", "workday",
-    "salesforce", "jira", "cadence", "cadence's", "cadence financial group", "optiv",
+from src.detection.context import NON_PII_TERMS, ORGANIZATIONAL_SUFFIXES
+
+# Negative filter sets
+DECISION_OUTCOMES: Set[str] = {
+    "approved", "rejected", "pending", "conditional", "submitted", "result",
 }
+
+LEGAL_DOCUMENT_TERMS: Set[str] = {
+    "contract", "agreement", "policy", "form", "contract submission form",
+    "contract creation", "intake form", "amendment",
+}
+
+STANDALONE_JURISDICTIONS: Set[str] = {
+    "united states", "the united states", "u.s.", "u.s.a.", "usa", "uk",
+    "canada", "united kingdom", "us", "eu", "apac", "emea", "na", "sa",
+}
+
+TOOL_COMPANY_NAMES: Set[str] = {
+    "ironclad", "torii", "optiv", "cadence", "onetrust", "servicenow",
+    "workday", "salesforce", "jira",
+}
+
+STRUCTURAL_PERSON_EXCLUSIONS: Set[str] = {
+    "launch", "admin", "custom", "template", "templates", "trigger",
+    "condition", "email", "qa reviewer", "description", "artificial intelligence",
+    "security team", "annual", "rule name", "trigger name", "email id",
+    "vendor tier attribute", "vendor tier",
+}
+
+TEMPLATE_PERSON_PATTERNS = [
+    re.compile(r"\b(?:Due\s+Diligence\s+)?Questionnaire\b", re.IGNORECASE),
+    re.compile(r"\bAppendix\s+[A-Z]\b", re.IGNORECASE),
+    re.compile(r"\bT[1-3]\s+v\d+\b", re.IGNORECASE),
+]
 
 
 class NEREngine:
@@ -229,15 +255,39 @@ class NEREngine:
 
                 # False positive filtering for PERSON
                 if entity_type == EntityType.PERSON:
+                    lower_val = clean_val.lower()
+                    norm_val = lower_val[4:].strip() if lower_val.startswith("the ") else lower_val
+
                     # Pure numbers or all-caps short acronyms (AI, IT, SLA, TPRM) are not people
                     if clean_val.isdigit() or (clean_val.isupper() and len(clean_val) <= 4):
                         continue
                     if sum(c.isalpha() for c in clean_val) < 2:
                         continue
 
+                    # Reject template patterns and appendices
+                    if any(p.search(clean_val) for p in TEMPLATE_PERSON_PATTERNS):
+                        continue
+
+                    # Reject decision outcomes
+                    if lower_val in DECISION_OUTCOMES or norm_val in DECISION_OUTCOMES:
+                        continue
+
+                    # Reject structural labels and common verbs/nouns
+                    if lower_val in STRUCTURAL_PERSON_EXCLUSIONS or norm_val in STRUCTURAL_PERSON_EXCLUSIONS:
+                        continue
+                    if lower_val in NON_PII_TERMS or norm_val in NON_PII_TERMS:
+                        continue
+
+                    # Reject organizational units: any entity ending with or containing group, team, etc.
+                    if any(re.search(rf"\b{suffix}\b", lower_val) for suffix in ORGANIZATIONAL_SUFFIXES):
+                        continue
+
+                    # Reject operational rule codes, prefixes, or underscores
+                    if "_" in clean_val or any(clean_val.startswith(p) for p in ("QRC_", "QRN_", "QR_", "QR.", "WR.", "CL.", "SLA.", "CD_", "CTL-", "RSK-")):
+                        continue
+
                     # Filter out terms containing non-PII keywords
-                    lower_val = clean_val.lower()
-                    if any(term in lower_val for term in ["workflow", "security", "tier", "privacy shield", "ironclad", "torii", "cadence", "optiv", "onetrust"]):
+                    if any(term in lower_val for term in ["workflow", "security", "tier", "privacy shield", "ironclad", "torii", "cadence", "optiv", "onetrust", "template", "rule", "trigger", "condition", "reviewer"]):
                         continue
 
                     # Check if this span was classified as an Organization by spaCy
@@ -265,9 +315,16 @@ class NEREngine:
                         sub_parts = [line.strip() for line in value.split("\n") if line.strip()]
                         for sub in sub_parts:
                             clean_sub = sub.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
-                            if not clean_sub or len(clean_sub) < 2 or clean_sub.lower() in NON_PII_TERMS or sum(c.isalpha() for c in clean_sub) < 2:
+                            sub_lower = clean_sub.lower()
+                            if not clean_sub or len(clean_sub) < 2 or sub_lower in NON_PII_TERMS or sum(c.isalpha() for c in clean_sub) < 2:
                                 continue
-                            if any(term in clean_sub.lower() for term in ["workflow", "security", "tier", "privacy shield"]):
+                            if any(p.search(clean_sub) for p in TEMPLATE_PERSON_PATTERNS):
+                                continue
+                            if sub_lower in DECISION_OUTCOMES or sub_lower in STRUCTURAL_PERSON_EXCLUSIONS:
+                                continue
+                            if any(re.search(rf"\b{suffix}\b", sub_lower) for suffix in ORGANIZATIONAL_SUFFIXES):
+                                continue
+                            if any(term in sub_lower for term in ["workflow", "security", "tier", "privacy shield"]):
                                 continue
                             sub_start = block.text.find(sub, result.start)
                             if sub_start == -1:
@@ -289,8 +346,32 @@ class NEREngine:
 
                 # False positive filtering for ADDRESS
                 if entity_type == EntityType.ADDRESS:
-                    # Standalone country/acronym codes and tech/org brands are not street addresses
-                    if clean_val.lower() in {"ai", "us", "uk", "eu", "apac", "emea", "na", "sa", "cadence", "torii", "optiv", "onetrust", "ironclad"} or len(clean_val) <= 2:
+                    lower_addr = clean_val.lower()
+                    norm_addr = lower_addr[4:].strip() if lower_addr.startswith("the ") else lower_addr
+
+                    # Reject decision outcomes
+                    if lower_addr in DECISION_OUTCOMES or norm_addr in DECISION_OUTCOMES:
+                        continue
+                    # Reject legal / document terms
+                    if lower_addr in LEGAL_DOCUMENT_TERMS or norm_addr in LEGAL_DOCUMENT_TERMS:
+                        continue
+                    # Reject standalone countries / jurisdictions
+                    if lower_addr in STANDALONE_JURISDICTIONS or norm_addr in STANDALONE_JURISDICTIONS:
+                        continue
+                    # Reject tool / company names
+                    if lower_addr in TOOL_COMPANY_NAMES or norm_addr in TOOL_COMPANY_NAMES:
+                        continue
+                    # Reject general non-PII terms
+                    if lower_addr in NON_PII_TERMS or norm_addr in NON_PII_TERMS:
+                        continue
+                    # Reject operational prefixes and underscores
+                    if "_" in clean_val or any(clean_val.startswith(p) for p in ("QRC_", "QRN_", "QR_", "QR.", "WR.", "CL.", "SLA.", "CD_", "CTL-", "RSK-")):
+                        continue
+                    # An address cannot be a single token without numbers (e.g. cursor, notify, ownership)
+                    if len(clean_val.split()) < 2 and not any(c.isdigit() for c in clean_val):
+                        continue
+                    # Standalone country/acronym codes and short tokens
+                    if lower_addr in {"ai", "us", "uk", "eu", "apac", "emea", "na", "sa"} or len(clean_val) <= 2:
                         continue
 
                 # Strict validation for EMAIL
@@ -302,6 +383,11 @@ class NEREngine:
                 if entity_type == EntityType.DOB:
                     # Generic full paragraphs or long text blocks are not birth dates
                     if len(clean_val) > 35 or not any(c.isdigit() for c in clean_val):
+                        continue
+
+                # False positive filtering for EMPLOYEE_ID
+                if entity_type == EntityType.EMPLOYEE_ID:
+                    if len(clean_val) < 4 or re.match(r"^v\d+(\.\d+)?$", clean_val, re.IGNORECASE):
                         continue
 
                 entity = PIIEntity(
@@ -319,11 +405,19 @@ class NEREngine:
 
                 entities.append(entity)
 
-            # Detect initials names pattern (e.g. KC Burney, DK Koran) in block text
-            initial_pattern = re.compile(r"\b[A-Z]{1,2}\.?\s+[A-Z][a-z]+\b")
+            # Detect initials names pattern (e.g. KC Burney, DK Koran, M. Vossberg, A. Okonkwo-Bell) in block text
+            initial_pattern = re.compile(r"\b[A-Z]{1,2}\.?\s+[A-Z][a-z]+(?:-[A-Z][a-z]+)?\b")
             for m in initial_pattern.finditer(block.text):
                 cand_name = m.group(0).strip()
-                if cand_name.lower() not in NON_PII_TERMS and not any(s <= m.start() < e for s, e in org_spans):
+                cand_lower = cand_name.lower()
+                if (
+                    cand_lower not in NON_PII_TERMS
+                    and cand_lower not in STRUCTURAL_PERSON_EXCLUSIONS
+                    and cand_lower not in DECISION_OUTCOMES
+                    and not any(p.search(cand_name) for p in TEMPLATE_PERSON_PATTERNS)
+                    and not any(re.search(rf"\b{suffix}\b", cand_lower) for suffix in ORGANIZATIONAL_SUFFIXES)
+                    and not any(s <= m.start() < e for s, e in org_spans)
+                ):
                     # Check if already covered
                     if not any(e.text_start <= m.start() and m.end() <= e.text_end for e in entities):
                         entities.append(PIIEntity(

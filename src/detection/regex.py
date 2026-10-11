@@ -448,6 +448,32 @@ def _build_pattern_catalog() -> Dict[EntityType, List[PIIPattern]]:
         ),
     ]
 
+    # -------------------------------------------------------------------------
+    # ADDRESS (Physical Street Address)
+    # -------------------------------------------------------------------------
+    catalog[EntityType.ADDRESS] = [
+        # Full address: Number + Street Name + Suffix + Suite/Unit + City, State Zip
+        PIIPattern(
+            entity_type=EntityType.ADDRESS,
+            pattern=re.compile(
+                r"\b\d{1,5}\s+(?:[A-Za-z0-9.]+\s+){1,4}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Terrace|Ter|Way|Place|Pl)\.?(?:,\s*(?:Suite|Ste|Apt|Unit|Floor|Fl)\s*[A-Za-z0-9\-]+)?,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?\b",
+                re.IGNORECASE,
+            ),
+            base_confidence=0.95,
+            description="Full US street address with City, State and ZIP",
+        ),
+        # Street address with building number, street name, and road suffix
+        PIIPattern(
+            entity_type=EntityType.ADDRESS,
+            pattern=re.compile(
+                r"\b\d{1,5}\s+(?:[A-Za-z0-9.]+\s+){1,4}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Terrace|Ter|Way|Place|Pl)\.?(?:,\s*(?:Suite|Ste|Apt|Unit|Floor|Fl)\s*[A-Za-z0-9\-]+)?\b",
+                re.IGNORECASE,
+            ),
+            base_confidence=0.88,
+            description="US street address with number and street suffix",
+        ),
+    ]
+
     return catalog
 
 

@@ -101,9 +101,20 @@ src/
 - **Document-Wide Entity Propagation**:
   - Collects all confirmed `PERSON` entities document-wide.
   - Automatically scans every block, table cell, and version control section using word boundaries `\b<name>\b` to enforce 100% uniform detection and identical placeholder replacement.
-- **Enterprise & Non-PII Allowlist Filtering**:
-  - Discards false positives for ordinary operational words (`"Workflow"`, `"Security"`, `"Tier 1"`, `"annual"`, `"Privacy Shield"`) and tool names (`"Ironclad"`, `"Torii"`).
-  - Explicitly preserves organization names like `"Cadence"` in body text as non-PII.
+- **Structural & Template Name Protection**:
+  - Questionnaire & Template patterns (e.g. `Due Diligence Questionnaire T1-2 v1`, `T3 v1`) are protected by structural regex recognition and version-number shielding (`v\d+(\.\d+)?`), eliminating false positive collisions with `EMPLOYEE_ID`.
+- **Outcome & Decision Disambiguation**:
+  - Operational outcomes (`Result: Approved`, `Rejected`, `Conditional`, `Submitted`) are negative-filtered across all layers to prevent spaCy `GPE`/`LOC` misclassification as `ADDRESS` or `PERSON`.
+- **Company, Tool & Standalone Jurisdiction Protection**:
+  - Corporate products (`Ironclad`, `Torii`), company names (`Optiv`, `Cadence`), and standalone geopolitical entities (`the United States`) are strictly distinguished from personal physical street addresses.
+- **Form Field Labels & Structural Appendix Headings**:
+  - Structural field indicators (`Condition:`, `Trigger:`, `Trigger Type:`, `Trigger Name:`, `Rule Name`, `Email ID`, `Vendor Tier attribute`, `QA Reviewer`) and appendix headings (`Appendix A`–`Appendix E`) are shielded from cue-window capture.
+- **Organizational Suffix Disaggregation**:
+  - Functional units ending in organizational suffixes (`group`, `team`, `committee`, `board`, `department`, `division`, `council`, `office`) under approver headers are classified as teams, preventing false `PERSON` redaction.
+- **Strict Multi-Token Gating for Document-Wide Propagation**:
+  - Confirmed name propagation requires multi-token capitalized strings (`len(tokens) >= 2`), eliminating single-word propagation leaks and over-redaction of common terms (`Launch`, `Admin`, `Email`, `Trigger`).
+- **Atomic Token Shielding & Anti-Nesting**:
+  - Single-pass atomic token protection in `text_redactor.py` (`_protect_tokens`) permanently shields existing `[REDACTED...]` placeholders from recursive substring collisions (e.g. preventing `[REDACTED:EM[REDACTED:ADDRESS]L]`).
 - **Strict Email Pattern Validation**:
   - Enforces that `EMAIL` entities are ONLY emitted when the string strictly matches email syntax with `@` and valid domain, eliminating stray email tags on cue words (`or email address`, `ID of vendor`).
 - **Calendar Date Preservation**:
@@ -133,4 +144,7 @@ src/
 - [x] Implement Luhn, Verhoeff, and phone validators in `src/detection/validators.py`
 - [x] Implement span conflict resolver and deduplicator in `src/detection/resolver.py`
 - [x] Implement document-wide entity propagation & non-PII filters in `src/detection/pipeline.py`
-- [x] Write unit tests in `tests/unit/test_detection.py`, `tests/unit/test_resolver.py`, and `tests/unit/test_precision_fixes.py`
+- [x] Implement organizational disaggregation & structural template guards
+- [x] Implement atomic token shielding preventing nested token mutation
+- [x] Write unit tests in `tests/unit/test_detection.py`, `tests/unit/test_resolver.py`, and `tests/unit/test_precision_fixes.py` (369/369 tests passing)
+

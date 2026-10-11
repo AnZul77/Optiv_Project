@@ -1,0 +1,24 @@
+.git
+.gitignore
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache
+.coverage
+htmlcov
+*.log
+tmp
+temp
+scratch
+data/outputs/*
+!data/outputs/.gitkeep
+reports/logs/*
+test docs
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*

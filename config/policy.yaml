@@ -16,7 +16,7 @@
 # =============================================================================
 
 version: "1.0"
-policy_name: "cadence-pii-firewall-default"
+policy_name: "enterprise-pii-firewall-default"
 
 # -----------------------------------------------------------------------------
 # Entity rules, grouped by risk tier.

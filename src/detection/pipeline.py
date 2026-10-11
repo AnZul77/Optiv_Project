@@ -23,7 +23,7 @@ import re
 import logging
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from src.schema.entities import (
     ContentBlock,
@@ -34,7 +34,19 @@ from src.schema.entities import (
     EntityType,
     DetectionSource,
 )
-from src.detection.context import NON_PII_TERMS, EMAIL_STRICT_PATTERN
+from src.detection.context import (
+    NON_PII_TERMS,
+    ORGANIZATIONAL_SUFFIXES,
+    EMAIL_STRICT_PATTERN,
+)
+from src.detection.ner import (
+    DECISION_OUTCOMES,
+    LEGAL_DOCUMENT_TERMS,
+    STANDALONE_JURISDICTIONS,
+    TOOL_COMPANY_NAMES,
+    STRUCTURAL_PERSON_EXCLUSIONS,
+    TEMPLATE_PERSON_PATTERNS,
+)
 from src.detection.regex import RegexEngine
 from src.detection.ner import NEREngine
 from src.detection.context import ContextEngine
@@ -288,6 +300,16 @@ class DetectionPipeline:
 
             # Add table cells with inherited column headers
             for table in getattr(page, "tables", []):
+                # Also include table header cells as blocks for detection
+                for h_idx, h_text in enumerate(getattr(table, "headers", [])):
+                    if h_text and h_text.strip():
+                        blocks.append(
+                            ContentBlock(
+                                text=h_text,
+                                block_id=f"tbl_{getattr(table, 'table_index', 0)}_hdr_{h_idx}",
+                                page=page_num,
+                            )
+                        )
                 for row in getattr(table, "rows", []):
                     for cell in row:
                         blocks.append(
@@ -371,8 +393,11 @@ class DetectionPipeline:
             if not clean_val or len(clean_val) < 2:
                 continue
 
+            lower_val = clean_val.lower()
+            norm_val = lower_val[4:].strip() if lower_val.startswith("the ") else lower_val
+
             # Hard filter non-PII terms
-            if clean_val.lower() in NON_PII_TERMS:
+            if lower_val in NON_PII_TERMS or norm_val in NON_PII_TERMS:
                 continue
 
             # Strict email check: MUST match email pattern
@@ -382,13 +407,57 @@ class DetectionPipeline:
 
             # Date check: DOB must contain digits
             if e.entity_type == EntityType.DOB:
-                if not any(c.isdigit() for c in clean_val) or clean_val.lower() in NON_PII_TERMS:
+                if not any(c.isdigit() for c in clean_val) or lower_val in NON_PII_TERMS:
                     continue
 
-            # Person check: must not contain corporate or workflow terms
+            # Employee ID check: reject version numbers like v6, v6.0 or short strings
+            if e.entity_type == EntityType.EMPLOYEE_ID:
+                if len(clean_val) < 4 or re.match(r"^v\d+(\.\d+)?$", clean_val, re.IGNORECASE):
+                    continue
+
+            # Aadhaar check: must have 12 digits
+            if e.entity_type == EntityType.AADHAAR:
+                digits = re.sub(r"[^\d]", "", clean_val)
+                if len(digits) != 12:
+                    continue
+
+            # Address check: reject decision outcomes, jurisdictions, legal terms, tools, or organizational suffixes
+            if e.entity_type == EntityType.ADDRESS:
+                has_num = any(c.isdigit() for c in clean_val)
+                has_addr_term = any(
+                    re.search(rf"\b{term}\b", clean_val, re.IGNORECASE) for term in [
+                        "street", "st", "road", "rd", "avenue", "ave", "lane", "ln",
+                        "boulevard", "blvd", "drive", "dr", "court", "ct", "crescent",
+                        "cres", "way", "suite", "ste", "apt", "apartment", "building",
+                        "floor", "box", "p.o.", "po box"
+                    ]
+                )
+                if not (has_num or has_addr_term):
+                    continue
+                if re.match(r"^(?:used|using|use|emerging|a documented|documented|high|medium|low|for|to|with)\b", clean_val, re.IGNORECASE):
+                    continue
+                if (
+                    lower_val in DECISION_OUTCOMES or norm_val in DECISION_OUTCOMES
+                    or lower_val in LEGAL_DOCUMENT_TERMS or norm_val in LEGAL_DOCUMENT_TERMS
+                    or lower_val in STANDALONE_JURISDICTIONS or norm_val in STANDALONE_JURISDICTIONS
+                    or lower_val in TOOL_COMPANY_NAMES or norm_val in TOOL_COMPANY_NAMES
+                    or any(re.search(rf"\b{suffix}\b", lower_val) for suffix in ORGANIZATIONAL_SUFFIXES)
+                ):
+                    continue
+
+            # Person check: must not contain corporate, workflow, organizational terms, or template patterns
             if e.entity_type == EntityType.PERSON:
-                lower = clean_val.lower()
-                if any(term in lower for term in ["workflow", "security", "tier", "privacy shield", "ironclad", "torii", "cadence", "optiv", "onetrust"]):
+                if (
+                    lower_val in DECISION_OUTCOMES or norm_val in DECISION_OUTCOMES
+                    or lower_val in STRUCTURAL_PERSON_EXCLUSIONS or norm_val in STRUCTURAL_PERSON_EXCLUSIONS
+                    or any(p.search(clean_val) for p in TEMPLATE_PERSON_PATTERNS)
+                    or any(re.search(rf"\b{suffix}\b", lower_val) for suffix in ORGANIZATIONAL_SUFFIXES)
+                    or any(term in lower_val for term in [
+                        "workflow", "security", "tier", "privacy shield", "ironclad", "torii",
+                        "cadence", "optiv", "onetrust", "template", "rule", "trigger", "condition",
+                        "reviewer", "description"
+                    ])
+                ):
                     continue
 
             cleaned.append(e)
@@ -400,8 +469,36 @@ class DetectionPipeline:
                 raw_val = e.value.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
                 for line in raw_val.split("\n"):
                     cand = line.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
-                    if len(cand) >= 3 and cand.lower() not in NON_PII_TERMS and sum(c.isalpha() for c in cand) >= 2:
-                        confirmed_names.add(cand)
+                    if not cand or len(cand) < 3:
+                        continue
+                    tokens = cand.split()
+                    # STRICT requirement: Must be a multi-token full name (len(tokens) >= 2)
+                    # Single-token words ("Launch", "Email", "Admin", "Trigger") must NEVER be added to confirmed_names
+                    if len(tokens) < 2:
+                        continue
+                    cand_lower = cand.lower()
+                    if cand_lower in NON_PII_TERMS or cand_lower in STRUCTURAL_PERSON_EXCLUSIONS or cand_lower in DECISION_OUTCOMES:
+                        continue
+                    # The name must NOT contain or end with organizational suffixes (group, team, committee, etc.)
+                    if any(re.search(rf"\b{suffix}\b", cand_lower) for suffix in ORGANIZATIONAL_SUFFIXES):
+                        continue
+                    # Must not match template patterns or appendices
+                    if any(p.search(cand) for p in TEMPLATE_PERSON_PATTERNS):
+                        continue
+                    # Each token must be capitalized (t[0].isupper()), length >= 2, and not in generic/non-PII vocabulary
+                    valid_tokens = True
+                    for t in tokens:
+                        clean_t = t.strip(".,;:()")
+                        if len(clean_t) < 2 or not clean_t[0].isupper():
+                            valid_tokens = False
+                            break
+                        if clean_t.lower() in NON_PII_TERMS or clean_t.lower() in STRUCTURAL_PERSON_EXCLUSIONS:
+                            valid_tokens = False
+                            break
+                    if not valid_tokens:
+                        continue
+
+                    confirmed_names.add(cand)
 
         if not confirmed_names:
             return cleaned

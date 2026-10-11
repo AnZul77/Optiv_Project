@@ -82,9 +82,9 @@ CUE_PATTERNS: Dict[EntityType, List[str]] = {
         "emp no", "staff id", "employee code",
     ],
     EntityType.ADDRESS: [
-        "address", "residence", "location", "home address",
-        "residential address", "office address", "postal address",
-        "mailing address", "permanent address", "current address",
+        "address:", "street address", "home address", "residential address",
+        "office address", "postal address", "mailing address", "permanent address",
+        "current address", "physical address", "residence", "residence address",
     ],
     EntityType.CARD: [
         "card no", "card number", "credit card", "debit card",
@@ -117,6 +117,7 @@ CUE_PATTERNS: Dict[EntityType, List[str]] = {
     EntityType.PERSON: [
         "name", "employee name", "full name", "first name",
         "last name", "applicant", "candidate", "holder name",
+        "qa reviewer", "reviewer", "approver",
     ],
 }
 
@@ -243,15 +244,51 @@ SYSTEM_HEADER_EXCLUSIONS: Set[str] = {
     "question", "step", "role", "service", "system", "rule", "code",
     "status", "version", "category", "type", "description", "module", "field",
     "user groups", "group", "tier", "security",
+    # Operational/system exclusions
+    "risk", "control", "attribute", "trigger", "condition", "action", "template",
+    "object", "logic", "name", "collaborator", "collaborators", "assignee",
+    "scoring", "score", "timeline", "timelines",
+}
+
+# Organizational units that should not be tagged as individual PERSON entities
+ORGANIZATIONAL_SUFFIXES: Set[str] = {
+    "group", "team", "committee", "board", "department", "division", "council", "office",
 }
 
 # Common enterprise terms, tools, or ordinary words that are NOT PII
 NON_PII_TERMS: Set[str] = {
+    # Workflows, security, tiers
     "workflow", "workflows", "security", "information security", "cybersecurity",
     "tier 1", "tier 2", "tier 3", "tier 1 third", "tier",
     "annual", "annually", "quarterly", "monthly", "semi-annual",
-    "privacy shield", "privacy", "shield", "ironclad", "torii", "onetrust", "servicenow", "workday",
-    "salesforce", "jira", "cadence", "cadence's", "cadence financial group", "optiv",
+    "privacy shield", "privacy", "shield", "onetrust", "servicenow", "workday",
+    "salesforce", "jira", "cadence's", "cadence financial group",
+    # Questionnaires & Templates
+    "due diligence questionnaire", "diligence questionnaire", "questionnaire",
+    "due diligence questionnaire t1-2 v1", "due diligence questionnaire t3 v1",
+    "t3 v1", "t1-2 v1", "t1-2", "t3",
+    "template", "templates",
+    # Decision outcomes
+    "approved", "rejected", "pending", "conditional", "submitted", "result",
+    # Products/Vendors/Jurisdictions
+    "ironclad", "torii", "optiv", "cadence", "contract",
+    "contract submission form", "contract creation",
+    "united states", "the united states", "u.s.", "usa",
+    # Field labels / Form structure
+    "condition", "trigger", "trigger type", "trigger name", "rule name",
+    "stage rule name", "control name", "task name", "risk name",
+    "email id", "vendor tier attribute", "vendor tier",
+    "appendix", "appendix a", "appendix b", "appendix c", "appendix d", "appendix e",
+    "appendix a-e", "apendix",
+    "qa reviewer",
+    # Ordinary words & Operational artifacts
+    "admin", "custom", "description", "artificial intelligence", "security team",
+    "launch", "email", "tier 3 third parties", "third parties", "parties",
+    "continuous", "continuous vendor monitoring", "vendor monitoring",
+    "role holder directory", "role holder", "directory", "named contacts", "named contacts by division",
+    "cloud", "cloud apps", "database", "it requirement", "it risk", "legal risk",
+    "assessment completed", "timelines", "vendor created", "vendor metadata", "metadata", "cursor",
+    "notify", "ownership",
 }
 
 EMAIL_STRICT_PATTERN = re.compile(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b")
@@ -514,6 +551,12 @@ class ContextEngine:
                         continue
                     if clean_cand.lower() in NON_PII_TERMS or clean_cand.isdigit() or sum(c.isalpha() for c in clean_cand) < 2:
                         continue
+                    # Reject organizational units (e.g. 'Vendor Risk Management Group')
+                    if any(re.search(rf"\b{suffix}\b", clean_cand, re.IGNORECASE) for suffix in ORGANIZATIONAL_SUFFIXES):
+                        continue
+                    # Reject template patterns and appendices
+                    if re.search(r"\b(?:Due\s+Diligence\s+)?Questionnaire\b", clean_cand, re.IGNORECASE) or re.search(r"\bAppendix\s+[A-Z]\b", clean_cand, re.IGNORECASE):
+                        continue
                     cand_start = block.text.find(cand)
                     if cand_start == -1:
                         cand_start = 0
@@ -540,6 +583,11 @@ class ContextEngine:
             if entity_type:
                 if clean_cell.lower() in NON_PII_TERMS:
                     continue
+                if entity_type == EntityType.PERSON:
+                    if any(re.search(rf"\b{suffix}\b", clean_cell, re.IGNORECASE) for suffix in ORGANIZATIONAL_SUFFIXES):
+                        continue
+                    if re.search(r"\b(?:Due\s+Diligence\s+)?Questionnaire\b", clean_cell, re.IGNORECASE) or re.search(r"\bAppendix\s+[A-Z]\b", clean_cell, re.IGNORECASE):
+                        continue
                 entity = PIIEntity(
                     entity_type=entity_type,
                     value=cell_text,
@@ -599,12 +647,29 @@ class ContextEngine:
 
         for entity_type, cues in self.cue_patterns.items():
             for cue in cues:
-                # Match cue with word boundaries, followed by separator (:, =, -, is) and the value
-                pattern = re.compile(
-                    rf"\b{re.escape(cue)}\b\s*[:=\-]?\s*(?:is\s+)?([^\s,;\n\r\t]+(?:\s+[^\s,;\n\r\t]+){{0,2}})",
-                    re.IGNORECASE,
-                )
+                # Single-token matching for ID/numeric entity types; up to 3 words for PERSON/ADDRESS
+                if entity_type in {
+                    EntityType.SSN, EntityType.PASSPORT, EntityType.PHONE,
+                    EntityType.PAN, EntityType.AADHAAR, EntityType.BANK_ACCOUNT,
+                    EntityType.CARD, EntityType.IFSC, EntityType.GST,
+                    EntityType.TAX_ID, EntityType.DIRECTOR_ID, EntityType.EMAIL
+                }:
+                    pattern = re.compile(
+                        rf"\b{re.escape(cue)}\b\s*[:=\-]?\s*(?:is\s+)?([^\s,;\n\r\t]+)",
+                        re.IGNORECASE,
+                    )
+                else:
+                    pattern = re.compile(
+                        rf"\b{re.escape(cue)}\b\s*[:=\-]?\s*(?:is\s+)?([^\s,;\n\r\t]+(?:\s+[^\s,;\n\r\t]+){{0,2}})",
+                        re.IGNORECASE,
+                    )
                 for match in pattern.finditer(text):
+                    # Check if cue is "name" or generic cue preceded by a system/process header word (e.g. "Trigger Name:", "Rule Name:")
+                    if cue.lower() == "name":
+                        preceding = text[max(0, match.start() - 25):match.start()].lower()
+                        if any(re.search(rf"\b{ex}\b", preceding) for ex in SYSTEM_HEADER_EXCLUSIONS):
+                            continue
+
                     potential_value = match.group(1).strip()
                     # Strip trailing punctuation (. , ; :)
                     potential_value = potential_value.rstrip(".,;:")
@@ -613,15 +678,17 @@ class ContextEngine:
                     if not clean_val or len(clean_val) < 2 or len(potential_value) > 60:
                         continue
 
-                    # Avoid common stopwords and placeholders
-                    if potential_value.lower() in {
+                    # Avoid common stopwords, placeholders, and meta words
+                    if clean_val.lower() in {
                         "the", "a", "an", "on", "in", "at", "to", "for", "of", "and", "or", "not", "is", "was",
                         "n/a", "na", "none", "null", "tbd", "undefined",
+                        "number", "numbers", "date", "dates", "id", "ids", "code", "codes",
+                        "details", "info", "information", "uid", "no", "num",
                     }:
                         continue
 
                     # Check against known enterprise/domain non-PII terms
-                    if clean_val.lower() in NON_PII_TERMS:
+                    if clean_val.lower() in NON_PII_TERMS or potential_value.lower() in NON_PII_TERMS:
                         continue
 
                     # STRICT check for EMAIL: must match real email regex with @ and domain
@@ -633,12 +700,58 @@ class ContextEngine:
                     if entity_type == EntityType.PERSON:
                         if sum(c.isalpha() for c in potential_value) < 2 or potential_value.isdigit():
                             continue
-                        if any(term in potential_value.lower() for term in ["workflow", "security", "tier", "privacy shield", "ironclad", "torii", "cadence", "optiv"]):
+                        if clean_val.lower() in NON_PII_TERMS:
+                            continue
+                        if "_" in potential_value or any(potential_value.startswith(p) for p in ("QRC_", "QRN_", "QR_", "QR.", "WR.", "CL.", "SLA.", "CD_", "CTL-", "RSK-")):
+                            continue
+                        if re.match(r"^(?:of|to|for|in|at|by|from|with|about)\s+", potential_value, re.IGNORECASE):
+                            continue
+                        if "\n" in potential_value or "\r" in potential_value:
+                            continue
+                        if any(re.search(rf"\b{suffix}\b", clean_val, re.IGNORECASE) for suffix in ORGANIZATIONAL_SUFFIXES):
+                            continue
+                        if re.search(r"\b(?:Due\s+Diligence\s+)?Questionnaire\b", clean_val, re.IGNORECASE) or re.search(r"\bAppendix\s+[A-Z]\b", clean_val, re.IGNORECASE):
+                            continue
+                        if any(term in potential_value.lower() for term in [
+                            "workflow", "security", "tier", "privacy shield", "ironclad", "torii", "cadence",
+                            "optiv", "template", "rule", "trigger", "condition", "qa reviewer", "description"
+                        ]):
                             continue
 
                     # Syntactic validation for DOB: must contain numbers
                     if entity_type == EntityType.DOB:
                         if not any(c.isdigit() for c in potential_value):
+                            continue
+
+                    # Syntactic validation for all national, financial, and contact IDs: must contain digits
+                    if entity_type in {
+                        EntityType.SSN, EntityType.PHONE, EntityType.AADHAAR, EntityType.PAN,
+                        EntityType.PASSPORT, EntityType.CARD, EntityType.BANK_ACCOUNT,
+                        EntityType.IFSC, EntityType.GST, EntityType.TAX_ID, EntityType.DIRECTOR_ID
+                    }:
+                        if not any(c.isdigit() for c in potential_value):
+                            continue
+
+                    # Strict digit count for Aadhaar (12 digits required)
+                    if entity_type == EntityType.AADHAAR:
+                        digits = re.sub(r"[^\d]", "", potential_value)
+                        if len(digits) < 12:
+                            continue
+
+                    # Syntactic validation for ADDRESS: must contain digits or standard street/location keyword
+                    if entity_type == EntityType.ADDRESS:
+                        has_num = any(c.isdigit() for c in clean_val)
+                        has_addr_term = any(
+                            re.search(rf"\b{term}\b", clean_val, re.IGNORECASE) for term in [
+                                "street", "st", "road", "rd", "avenue", "ave", "lane", "ln",
+                                "boulevard", "blvd", "drive", "dr", "court", "ct", "crescent",
+                                "cres", "way", "suite", "ste", "apt", "apartment", "building",
+                                "floor", "box", "p.o.", "po box"
+                            ]
+                        )
+                        if not (has_num or has_addr_term):
+                            continue
+                        if re.match(r"^(?:used|using|use|emerging|a documented|documented|high|medium|low|for|to|with)\b", clean_val, re.IGNORECASE):
                             continue
 
                     val_start = match.start(1)

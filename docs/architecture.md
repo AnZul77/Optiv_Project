@@ -120,14 +120,15 @@ The gateway decouples format-specific quirks from downstream detection. Regardle
 - **Low-Confidence Trigger**: If character-level OCR confidence on any region falls below $0.60$, the document is marked as uncertain. In our fail-closed philosophy, uncertain is unsafe.
 
 ### 3.4 Multi-Layer Detection Subsystem (`src/detection/`)
-1. **Layer 1 (Regex)**: Deterministic patterns for high-structure identifiers (SSN, credit cards, Indian PAN, Aadhaar, email, international phone).
-2. **Layer 2 (NER)**: Offline Microsoft Presidio with local spaCy pipelines for unstructured narrative prose.
-3. **Layer 3 (Context Engine)**: Injects table header context (`header_name`) and sliding token window cues (`"DOB:"`, `"Employee Tax ID:"`) to disambiguate bare numeric strings.
-4. **Layer 4 (Checksum Validators)**: Algorithmic checks (Luhn for cards, Verhoeff for Aadhaar).
-5. **Layer 5 (Entity Resolver)**: Resolves overlapping character spans, merging partial spans and prioritizing high-specificity classifications.
+1. **Layer 1 (Regex)**: Deterministic patterns for high-structure identifiers (SSN, credit cards, Indian PAN, Aadhaar, email, international phone, full street addresses).
+2. **Layer 2 (NER)**: Offline Microsoft Presidio with local spaCy pipelines for unstructured narrative prose, guarded by negative filters against non-PII outcomes, legal terms, and standalone jurisdictions.
+3. **Layer 3 (Context Engine)**: Injects table header context (`header_name`) and sliding token window cues (`"DOB:"`, `"Employee Tax ID:"`) to disambiguate bare numeric strings while ignoring field label cues (`Trigger Name:`, `Rule Name:`) and organizational suffixes (`group`, `team`, `committee`).
+4. **Layer 4 (Checksum Validators)**: Algorithmic checks (Luhn for cards, Verhoeff for Aadhaar, libphonenumbers).
+5. **Layer 5 (Entity Resolver & Propagator)**: Resolves overlapping character spans, merging partial spans and prioritizing high-specificity classifications. Enforces multi-token qualification (`len(tokens) >= 2`, capitalization) before document-wide name propagation.
 
 ### 3.5 Native Document Reconstruction (`src/sanitization/`)
 - **Native DOCX Reconstructor (`docx_reconstructor.py`)**: Replaces sensitive text runs within paragraphs, table cells, and text boxes while preserving original Word fonts, colors, and layout structure ($\ge 80\%$ structural retention).
+- **Atomic Token Shielding (`text_redactor.py`)**: Employs single-pass token shielding (`_protect_tokens`) protecting existing `[REDACTED...]` placeholders from nested/recursive substring replacement collisions.
 - **True Pixel Burning**: Images are modified at the raw pixel buffer level using Pillow/OpenCV, burning solid opaque black boxes over sensitive bounding boxes before repacking.
 - **Integrity Guard (`src/security/integrity.py`)**: All reconstructed artifacts undergo an automated open-and-read parse check before release. If XML or zip parts are damaged, the gateway fails closed.
 

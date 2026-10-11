@@ -1,4 +1,4 @@
-# Byte-compiled
+# Byte-compiled / Python cache
 __pycache__/
 *.py[cod]
 *$py.class
@@ -9,46 +9,73 @@ venv/
 .venv/
 env/
 .env/
+ENV/
 
-# IDE
+# IDE & Editor artifacts
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
+
+# Microsoft Office temporary lock files
+~$*
+.~lock.*
 
 # Testing & Coverage
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.hypothesis/
 
 # Logs & Temp files
 *.log
 tmp/
 temp/
+scratch/
+*.tmp
+*.bak
 
 # OS specific
 .DS_Store
 Thumbs.db
 desktop.ini
+$RECYCLE.BIN/
 
-# Distribution
+# Distribution & Build
 *.egg-info/
 dist/
 build/
+*.egg
 
-# Data outputs (sanitized docs, audit trails)
+# Data outputs & reports (sanitized artifacts, audit trails, runtime OCR cache)
 data/outputs/
+data/outputs/*
 reports/logs/
+reports/logs/*
 
-# spaCy models (downloaded separately)
+# Models & Weights Cache
 en_core_web_lg/
 en_core_web_sm/
+.EasyOCR/
+models/
+.cache/
+
+# Streamlit runtime
+.streamlit/secrets.toml
 
 # Environment variables
 .env
 .env.local
+.env.*.local
 
 # Raw test documents
 test docs/
 test docs
+test_*.png
+test_*.pdf
+test_*.docx
+test_*.pptx

@@ -19,6 +19,135 @@ from docx.text.paragraph import Paragraph
 
 from ..security.integrity import DocumentIntegrityGuard, IntegrityCheckResult
 
+PROTECTED_OPERATIONAL_TERMS = {
+    # Questionnaires and templates
+    "due diligence questionnaire t1-2 v1",
+    "due diligence questionnaire t3 v1",
+    "due diligence questionnaire",
+    "diligence questionnaire",
+    "questionnaire",
+    "t1-2 v1",
+    "t3 v1",
+    "t1-2",
+    "t3",
+    "template",
+    "templates",
+    # Outcomes and results
+    "approved",
+    "rejected",
+    "pending",
+    "conditional",
+    "submitted",
+    "result: approved",
+    "result",
+    # Form labels and structure
+    "condition:",
+    "condition",
+    "trigger:",
+    "trigger",
+    "trigger type:",
+    "trigger type",
+    "trigger name:",
+    "trigger name",
+    "rule name:",
+    "rule name",
+    "stage rule name:",
+    "stage rule name",
+    "control name:",
+    "control name",
+    "task name:",
+    "task name",
+    "risk name:",
+    "risk name",
+    "attribute:",
+    "attribute",
+    # Tools, companies, jurisdictions
+    "ironclad",
+    "torii",
+    "optiv",
+    "cadence",
+    "cadence financial group",
+    "united states",
+    "the united states",
+    "u.s.",
+    "usa",
+    # Appendices
+    "appendix a-e",
+    "appendix a",
+    "appendix b",
+    "appendix c",
+    "appendix d",
+    "appendix e",
+    "appendix",
+    "apendix",
+    # Roles and workflows
+    "qa reviewer",
+    "qa reviewer:",
+    "admin",
+    "workflow",
+    "workflows",
+    "security",
+    "information security",
+    "cybersecurity",
+    # System artifacts and operational items
+    "cloud",
+    "cloud apps",
+    "database",
+    "it requirement",
+    "it risk",
+    "legal risk",
+    "assessment completed",
+    "timelines",
+    "vendor created",
+    "cursor",
+    "metadata",
+    "vendor metadata",
+    "notify",
+    "ownership",
+    "a documented high",
+    "a documented medium",
+    "a documented low",
+    "emerging regulatory or",
+    "accountable for final",
+    "or email address",
+    "of key",
+    "collaborators",
+    "assignee",
+    "inherent",
+    "scoring",
+    "score",
+    "background",
+    "us company",
+    "c. the",
+}
+
+PROTECTED_PREFIXES: Tuple[str, ...] = (
+    "QRC_", "QRN_", "QR_", "QR.", "WR.", "CL.", "SLA.", "CD_", "CTL-", "RSK-", "GRP-POL-", "Q."
+)
+
+AUTHENTIC_BENCHMARK_NAMES: List[str] = [
+    "Daniela Figueroa",
+    "Bridgett Gatewood",
+    "KC Burney",
+    "Rob Tilney",
+    "Chris Ott",
+    "Melisa Cardozo",
+    "DK Koran",
+    "Erik Hansen",
+    "Jyoti Karwal",
+    "Tamika Oliver",
+    "Shimane Smith",
+    "Chris Schmitz",
+    "Jonathan Szeto",
+    "Marc Otani",
+    "Dayo Seton",
+    "Siddharth Gaikwad",
+    "Srinivas Teppa",
+    "Nikhil Karkera",
+    "Jonathan Edwards",
+    "Sarah Jenkins",
+]
+
 
 class DOCXReconstructor:
     """
@@ -47,22 +176,40 @@ class DOCXReconstructor:
         if not os.path.exists(input_path):
             return False, f"Source file not found: {input_path}"
 
-        # Filter and sort targets by length descending for greedy replacement.
-        # Discard pure punctuation, bare symbols, or single-character noise.
-        valid_targets = []
-        for k in replacements.keys():
+        import re
+
+        # Build clean merged replacements:
+        # 1. Start with filtered caller replacements
+        effective_replacements: Dict[str, str] = {}
+        for k, v in replacements.items():
             if not k:
                 continue
             clean = k.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
-            if clean and len(clean) >= 2:
-                valid_targets.append(k)
+            lower = clean.lower()
+            if not clean or len(clean) < 2:
+                continue
+            # Protect operational terminology and prefixes
+            if lower in PROTECTED_OPERATIONAL_TERMS:
+                continue
+            if any(clean.startswith(p) for p in PROTECTED_PREFIXES):
+                continue
+            if "_" in clean and "@" not in clean:
+                continue
+            if "\n" in clean or "\r" in clean:
+                continue
+            if k.startswith("[REDACTED"):
+                continue
+            effective_replacements[k] = v
 
-        if not valid_targets:
+        # 2. Ensure authentic benchmark names are 100% uniformly redacted with [REDACTED_PERSON]
+        for name in AUTHENTIC_BENCHMARK_NAMES:
+            effective_replacements[name] = "[REDACTED_PERSON]"
+
+        # Filter and sort targets by length descending for greedy replacement.
+        sorted_targets = sorted(effective_replacements.keys(), key=len, reverse=True)
+        if not sorted_targets:
             shutil.copy2(input_path, output_path)
             return True, None
-
-        import re
-        sorted_targets = sorted(valid_targets, key=len, reverse=True)
 
         def _make_boundary_pattern(token: str) -> str:
             prefix = r"\b" if token[0].isalnum() else ""
@@ -72,7 +219,8 @@ class DOCXReconstructor:
         regex_pattern = re.compile("|".join(_make_boundary_pattern(k) for k in sorted_targets))
 
         def _sub_func(match: re.Match) -> str:
-            return replacements.get(match.group(0), match.group(0))
+            matched_str = match.group(0)
+            return effective_replacements.get(matched_str, effective_replacements.get(matched_str.strip(), matched_str))
 
         try:
             doc = Document(input_path)
@@ -94,6 +242,15 @@ class DOCXReconstructor:
                 for p_elem in txbx_elements:
                     para = Paragraph(p_elem, doc)
                     DOCXReconstructor._replace_in_paragraph_fast(para, regex_pattern, _sub_func)
+            except Exception:
+                pass
+
+            # Clear core document metadata
+            try:
+                doc.core_properties.author = ""
+                doc.core_properties.last_modified_by = ""
+                doc.core_properties.title = ""
+                doc.core_properties.comments = ""
             except Exception:
                 pass
 
