@@ -100,14 +100,16 @@ class TextRedactor:
         block_char: str = "█",
         min_docx_target_length: int = 3,
     ):
-        if mode not in ("token", "block"):
-            raise ValueError("mode must be 'token' or 'block'")
+        if mode not in ("token", "block", "pseudonym"):
+            raise ValueError("mode must be 'token', 'block', or 'pseudonym'")
         if not block_char:
             raise ValueError("block_char cannot be empty")
         self.mode = mode
         self.token_format = token_format
         self.block_char = block_char
         self.min_docx_target_length = min_docx_target_length
+        self._pseudonym_map: Dict[str, str] = {}
+        self._type_counters: Dict[str, int] = {}
 
     @classmethod
     def from_policy(cls, policy: Any) -> "TextRedactor":
@@ -121,9 +123,16 @@ class TextRedactor:
             min_docx_target_length=int(settings["min_docx_target_length"]),
         )
 
-    def token_for(self, entity_type: str, length: int) -> str:
+    def token_for(self, entity_type: str, length: int = 0, raw_value: Optional[str] = None) -> str:
         if self.mode == "block":
             return self.block_char * max(1, length)
+        if self.mode == "pseudonym" and raw_value:
+            clean_raw = raw_value.strip().lower()
+            if clean_raw not in self._pseudonym_map:
+                curr = self._type_counters.get(entity_type, 0) + 1
+                self._type_counters[entity_type] = curr
+                self._pseudonym_map[clean_raw] = f"[{entity_type}_{curr}]"
+            return self._pseudonym_map[clean_raw]
         return self.token_format.format(type=entity_type or "PII")
 
     # ------------------------------------------------------------------ core
@@ -181,7 +190,7 @@ class TextRedactor:
             # Label a merged span with its highest-risk member's type.
             label_entity = max(members, key=lambda e: risk_rank(entity_risk_name(e)))
             entity_type = entity_type_name(label_entity)
-            replacement = self.token_for(entity_type, end - start)
+            replacement = self.token_for(entity_type, end - start, raw_value=text[start:end])
 
             prefix = text[cursor:start]
             pieces.append(prefix)
@@ -273,7 +282,7 @@ class TextRedactor:
             if len(target.strip()) < self.min_docx_target_length:
                 skipped.append(entity_id)
                 continue
-            replacements[target] = self.token_for(entity_type_name(entity), len(target))
+            replacements[target] = self.token_for(entity_type_name(entity), len(target), raw_value=target)
 
         return replacements, skipped
 
@@ -296,22 +305,48 @@ def redact_text_by_spans(
 ) -> str:
     """
     Replace text spans with redaction tokens using character offsets.
+    Sorts and merges overlapping spans before replacement to avoid slice corruption.
     """
     if not text or not spans:
         return text
 
-    sorted_spans = sorted(spans, key=lambda s: s.get("start", 0), reverse=True)
-    result = text
-    for span in sorted_spans:
-        start = int(span.get("start", 0))
-        end = int(span.get("end", 0))
-        entity_type = str(span.get("type", "PII"))
+    # Extract, validate and sort spans
+    valid_spans: List[Tuple[int, int, str]] = []
+    for s in spans:
+        try:
+            start = int(s.get("start", 0))
+            end = int(s.get("end", 0))
+            entity_type = str(s.get("type", "PII"))
+            if 0 <= start < end <= len(text):
+                valid_spans.append((start, end, entity_type))
+        except (ValueError, TypeError):
+            continue
 
-        if 0 <= start <= end <= len(result):
-            replacement = mask_format.format(type=entity_type)
-            result = result[:start] + replacement + result[end:]
+    if not valid_spans:
+        return text
 
-    return result
+    # Sort spans by start ascending, end descending
+    valid_spans.sort(key=lambda s: (s[0], -s[1]))
+
+    # Merge overlapping or contiguous spans
+    merged_spans: List[Tuple[int, int, str]] = []
+    for start, end, etype in valid_spans:
+        if merged_spans and start < merged_spans[-1][1]:
+            prev_start, prev_end, prev_type = merged_spans[-1]
+            merged_spans[-1] = (prev_start, max(prev_end, end), prev_type)
+        else:
+            merged_spans.append((start, end, etype))
+
+    # Build redacted text piece by piece
+    pieces: List[str] = []
+    cursor = 0
+    for start, end, etype in merged_spans:
+        pieces.append(text[cursor:start])
+        pieces.append(mask_format.format(type=etype))
+        cursor = end
+    pieces.append(text[cursor:])
+
+    return "".join(pieces)
 
 
 def redact_text_by_values(
@@ -320,19 +355,39 @@ def redact_text_by_values(
     case_sensitive: bool = True,
 ) -> str:
     """
-    Replace specific text strings with replacement tokens.
+    Replace specific text strings with replacement tokens using word boundaries,
+    protecting existing redaction tokens from nested/recursive mutation.
     """
     if not text or not replacements:
         return text
 
-    result = text
     sorted_items = sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True)
+    flags = 0 if case_sensitive else re.IGNORECASE
 
+    # Regex pattern protecting existing redaction tokens: [REDACTED...], [TYPE_#], etc.
+    existing_token_pattern = r"\[REDACTED[^\]]*\]|\[[A-Z_]+_\d+\]"
+
+    result = text
     for raw_val, mask in sorted_items:
         if not raw_val or not raw_val.strip():
             continue
-        flags = 0 if case_sensitive else re.IGNORECASE
-        escaped = re.escape(raw_val)
-        result = re.sub(escaped, mask, result, flags=flags)
+        clean = raw_val.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+        if not clean or len(clean) < 2:
+            continue
+
+        prefix = r"\b" if raw_val[0].isalnum() else ""
+        suffix = r"\b" if raw_val[-1].isalnum() else ""
+        target_pattern = f"{prefix}{re.escape(raw_val)}{suffix}"
+
+        # Match existing redaction tokens OR target pattern
+        # If group 1 matches (existing token), preserve it untouched
+        combined_pattern = rf"({existing_token_pattern})|({target_pattern})"
+
+        def _protect_tokens(match: re.Match) -> str:
+            if match.group(1):
+                return match.group(1)
+            return mask
+
+        result = re.sub(combined_pattern, _protect_tokens, result, flags=flags)
 
     return result

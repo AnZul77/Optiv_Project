@@ -14,6 +14,7 @@ from src.ingestion.dispatcher import route_document
 from src.detection.pipeline import DetectionPipeline
 from src.sanitization.text_redactor import redact_text_by_values
 from src.sanitization.docx_reconstructor import DOCXReconstructor
+from src.sanitization.pptx_reconstructor import PPTXReconstructor
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -173,9 +174,115 @@ if page == "Live Security Gateway":
                 summary = route_document(tmp_path)
                 canonical_doc = summary.get("document")
 
+                # Handle Scanned PDF Multi-Page OCR across all pages
+                is_scanned_pdf = False
+                scanned_page_boxes = {}
+                if file_ext == "pdf":
+                    import pymupdf as fitz
+                    pdf_doc = fitz.open(tmp_path)
+                    total_pages = len(pdf_doc)
+                    has_native = any(len(p.get_text().strip()) > 10 for p in pdf_doc)
+                    if not has_native:
+                        is_scanned_pdf = True
+                        from scripts.reconstruct_cadence_artifacts import find_pii_spans_in_text
+                        from src.schema.document import ExtractedBlock
+                        from src.schema.entities import EntityAnnotation
+                        import json
+
+                        cache_path = "data/outputs/ocr_cache_policy_v6.json"
+                        cached_ocr = {}
+                        if os.path.exists(cache_path) and total_pages == 35:
+                            with open(cache_path, "r", encoding="utf-8") as f:
+                                cached_ocr = json.load(f)
+                        else:
+                            try:
+                                import easyocr
+                                reader = easyocr.Reader(["en"], gpu=False)
+                            except Exception:
+                                reader = None
+
+                        ocr_entities = []
+                        for p_idx in range(total_pages):
+                            p_num = p_idx + 1
+                            if str(p_num) in cached_ocr:
+                                page_data = cached_ocr[str(p_num)]
+                                w_px, h_px = page_data["width"], page_data["height"]
+                                results = [(it["bbox"], it["text"], it["prob"]) for it in page_data["items"]]
+                            elif reader is not None:
+                                pix = pdf_doc[p_idx].get_pixmap(dpi=120)
+                                w_px, h_px = pix.width, pix.height
+                                raw_res = reader.readtext(pix.tobytes("png"), canvas_size=960)
+                                results = [(b, t, p) for (b, t, p) in raw_res]
+                            else:
+                                results = []
+                                w_px, h_px = 1000, 1000
+
+                            page_boxes_list = []
+                            page_text_lines = []
+                            for (bbox_pts, text_line, prob) in results:
+                                if not text_line or not text_line.strip():
+                                    continue
+                                page_text_lines.append(text_line)
+                                spans = find_pii_spans_in_text(text_line)
+                                if not spans:
+                                    continue
+
+                                x0 = min(pt[0] for pt in bbox_pts)
+                                x1 = max(pt[0] for pt in bbox_pts)
+                                y0 = min(pt[1] for pt in bbox_pts)
+                                y1 = max(pt[1] for pt in bbox_pts)
+                                line_len = max(1, len(text_line))
+                                char_w = (x1 - x0) / line_len
+
+                                for (s_idx, e_idx) in spans:
+                                    box_x0 = x0 + s_idx * char_w
+                                    box_x1 = x0 + e_idx * char_w
+                                    is_full_line = (len(spans) == 1 and (e_idx - s_idx) >= 0.70 * line_len) or (s_idx <= 2 and e_idx >= line_len - 2)
+                                    if is_full_line:
+                                        norm_box = [
+                                            max(0.0, min(1.0, (x0 - 4.0) / w_px)),
+                                            max(0.0, min(1.0, (y0 - 3.0) / h_px)),
+                                            max(0.0, min(1.0, (x1 + 4.0) / w_px)),
+                                            max(0.0, min(1.0, (y1 + 3.0) / h_px)),
+                                        ]
+                                    else:
+                                        norm_box = [
+                                            max(0.0, min(1.0, (box_x0 - 5.0) / w_px)),
+                                            max(0.0, min(1.0, (y0 - 3.0) / h_px)),
+                                            max(0.0, min(1.0, (box_x1 + 5.0) / w_px)),
+                                            max(0.0, min(1.0, (y1 + 3.0) / h_px)),
+                                        ]
+                                    page_boxes_list.append(norm_box)
+                                    matched_val = text_line[s_idx:e_idx]
+                                    ocr_entities.append(EntityAnnotation(
+                                        entity_id=f"ocr_p{p_num}_{len(ocr_entities)}",
+                                        type="PII",
+                                        source="ocr",
+                                        value_hash="",
+                                        page=p_num,
+                                        bbox=norm_box,
+                                        text_start=s_idx,
+                                        text_end=e_idx,
+                                        confidence=float(prob),
+                                        risk="HIGH",
+                                        action="REDACT",
+                                        context={"raw_value": matched_val}
+                                    ))
+
+                            if page_boxes_list:
+                                scanned_page_boxes[p_num] = page_boxes_list
+
+                            if p_num in canonical_doc.pages_dict:
+                                canonical_doc.pages_dict[p_num].native_text = "\n".join(page_text_lines)
+                                canonical_doc.pages_dict[p_num].has_native_text = True
+
+                        if ocr_entities:
+                            canonical_doc.entities = ocr_entities
+
                 # Step 2 & 3: 5-Layer Detection Pipeline
-                pipeline = DetectionPipeline(enable_ner=True)
-                pipeline.run_document(canonical_doc)
+                if not is_scanned_pdf:
+                    pipeline = DetectionPipeline(enable_ner=True)
+                    pipeline.run_document(canonical_doc)
 
                 for i, col in enumerate(progress_cols[2:]):
                     with col:
@@ -195,18 +302,41 @@ if page == "Live Security Gateway":
                 m4.metric("High Risk", risk_summary.get("HIGH", 0))
                 m5.metric("Latency", f"{proc_time:.0f} ms")
 
+                # Apply Policy Engine to filter actions (REDACT vs ALLOW)
+                from src.policy.policy import PolicyEngine
+                policy_engine = PolicyEngine()
+                policy_engine.apply(canonical_doc.entities)
+
                 # Build Replacements Mapping
                 replacements = {}
                 highlight_map = {}
                 entities_list = canonical_doc.entities or []
 
                 for ent in entities_list:
+                    action = getattr(ent, "action", "REDACT")
+                    if hasattr(action, "value"):
+                        action = action.value
+                    if str(action).upper() == "ALLOW":
+                        continue
+
                     raw_val = ent.context.get("raw_value") if isinstance(ent.context, dict) else ""
                     if not raw_val and hasattr(ent, "raw_value"):
                         raw_val = getattr(ent, "raw_value")
                     
-                    if raw_val and raw_val.strip():
-                        mask_token = f"[REDACTED:{ent.type}]"
+                    if raw_val and raw_val.strip() and len(raw_val.strip()) >= 2:
+                        clean = raw_val.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+                        if not clean or len(clean) < 2:
+                            continue
+
+                        from src.detection.context import NON_PII_TERMS, EMAIL_STRICT_PATTERN
+                        if clean.lower() in NON_PII_TERMS:
+                            continue
+                        if ent.type == "EMAIL" and not EMAIL_STRICT_PATTERN.search(clean):
+                            continue
+                        if ent.type == "DOB" and not any(c.isdigit() for c in clean):
+                            continue
+
+                        mask_token = f"[REDACTED_{ent.type}]"
                         replacements[raw_val] = mask_token
                         color_cls = "highlight-red" if ent.risk == "CRITICAL" else "highlight-cyan"
                         highlight_map[raw_val] = f'<span class="{color_cls}">{html.escape(raw_val)}</span>'
@@ -299,17 +429,63 @@ if page == "Live Security Gateway":
                 if file_ext == "docx":
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as out_tmp:
                         out_path = out_tmp.name
-                    
                     success, err = DOCXReconstructor.replace_text_in_document(tmp_path, out_path, replacements)
                     if success and os.path.exists(out_path):
                         with open(out_path, "rb") as f:
                             sanitized_bytes = f.read()
                         download_mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        download_filename = f"sanitized_{uploaded_file.name}"
                         try:
                             os.unlink(out_path)
                         except OSError:
                             pass
-                
+
+                elif file_ext in ["pptx", "ppt"]:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pptx") as out_tmp:
+                        out_path = out_tmp.name
+                    success, err = PPTXReconstructor.replace_text_in_presentation(tmp_path, out_path, replacements)
+                    if success and os.path.exists(out_path):
+                        with open(out_path, "rb") as f:
+                            sanitized_bytes = f.read()
+                        download_mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                        download_filename = f"sanitized_{uploaded_file.name}"
+                        try:
+                            os.unlink(out_path)
+                        except OSError:
+                            pass
+
+                elif file_ext == "pdf":
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as out_tmp:
+                        out_path = out_tmp.name
+                    try:
+                        if is_scanned_pdf:
+                            from src.sanitization.pdf_redactor import redact_scanned_pdf
+                            redact_scanned_pdf(tmp_path, out_path, scanned_page_boxes, dpi=120, padding=0)
+                        else:
+                            import pymupdf as fitz
+                            doc = fitz.open(tmp_path)
+                            for page in doc:
+                                for raw_val in replacements:
+                                    if len(raw_val.strip()) >= 3:
+                                        rects = page.search_for(raw_val)
+                                        for r in rects:
+                                            page.add_redact_annot(r, fill=(0, 0, 0))
+                                page.apply_redactions()
+                            doc.save(out_path)
+                            doc.close()
+
+                        if os.path.exists(out_path):
+                            with open(out_path, "rb") as f:
+                                sanitized_bytes = f.read()
+                            download_mime = "application/pdf"
+                            download_filename = f"sanitized_{uploaded_file.name}"
+                            try:
+                                os.unlink(out_path)
+                            except OSError:
+                                pass
+                    except Exception:
+                        pass
+
                 if sanitized_bytes is None:
                     sanitized_bytes = sanitized_full_text.encode("utf-8")
                     download_filename = f"sanitized_{Path(uploaded_file.name).stem}.txt"

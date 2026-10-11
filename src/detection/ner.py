@@ -24,8 +24,9 @@ Design Principles:
 
 from __future__ import annotations
 
+import re
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from src.schema.entities import (
     PIIEntity,
@@ -53,7 +54,6 @@ PRESIDIO_TYPE_MAP: Dict[str, EntityType] = {
     "US_DRIVER_LICENSE": EntityType.EMPLOYEE_ID,  # Mapped as org ID for now
     "US_ITIN": EntityType.TAX_ID,
     "LOCATION": EntityType.ADDRESS,
-    "DATE_TIME": EntityType.DOB,
     "NRP": EntityType.PERSON,  # Nationality/religious/political group
     "UK_NHS": EntityType.NINO,
 
@@ -69,6 +69,41 @@ PRESIDIO_TYPE_MAP: Dict[str, EntityType] = {
 
 # Entity types we want Presidio to detect (filter out noise)
 SUPPORTED_PRESIDIO_ENTITIES: List[str] = list(PRESIDIO_TYPE_MAP.keys())
+
+from src.detection.context import NON_PII_TERMS, ORGANIZATIONAL_SUFFIXES
+
+# Negative filter sets
+DECISION_OUTCOMES: Set[str] = {
+    "approved", "rejected", "pending", "conditional", "submitted", "result",
+}
+
+LEGAL_DOCUMENT_TERMS: Set[str] = {
+    "contract", "agreement", "policy", "form", "contract submission form",
+    "contract creation", "intake form", "amendment",
+}
+
+STANDALONE_JURISDICTIONS: Set[str] = {
+    "united states", "the united states", "u.s.", "u.s.a.", "usa", "uk",
+    "canada", "united kingdom", "us", "eu", "apac", "emea", "na", "sa",
+}
+
+TOOL_COMPANY_NAMES: Set[str] = {
+    "ironclad", "torii", "optiv", "cadence", "onetrust", "servicenow",
+    "workday", "salesforce", "jira",
+}
+
+STRUCTURAL_PERSON_EXCLUSIONS: Set[str] = {
+    "launch", "admin", "custom", "template", "templates", "trigger",
+    "condition", "email", "qa reviewer", "description", "artificial intelligence",
+    "security team", "annual", "rule name", "trigger name", "email id",
+    "vendor tier attribute", "vendor tier",
+}
+
+TEMPLATE_PERSON_PATTERNS = [
+    re.compile(r"\b(?:Due\s+Diligence\s+)?Questionnaire\b", re.IGNORECASE),
+    re.compile(r"\bAppendix\s+[A-Z]\b", re.IGNORECASE),
+    re.compile(r"\bT[1-3]\s+v\d+\b", re.IGNORECASE),
+]
 
 
 class NEREngine:
@@ -178,6 +213,18 @@ class NEREngine:
         entities: List[PIIEntity] = []
 
         try:
+            # 1. Extract organization and non-person entity spans using spaCy
+            org_spans = set()
+            if self._nlp:
+                try:
+                    spacy_doc = self._nlp(block.text)
+                    for ent in spacy_doc.ents:
+                        if ent.label_ in ("ORG", "PRODUCT", "WORK_OF_ART", "LAW"):
+                            org_spans.add((ent.start_char, ent.end_char))
+                except Exception as nlp_err:
+                    logger.debug("spaCy span extraction note: %s", nlp_err)
+
+            # 2. Run Presidio Analyzer
             results = self._analyzer.analyze(
                 text=block.text,
                 entities=SUPPORTED_PRESIDIO_ENTITIES,
@@ -196,6 +243,152 @@ class NEREngine:
 
                 # Extract the matched value from text
                 value = block.text[result.start:result.end]
+                clean_val = value.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+
+                # Discard empty, pure symbol, or single-character noise
+                if not clean_val or len(clean_val) < 2:
+                    continue
+
+                # Hard filter for enterprise/domain non-PII terms
+                if clean_val.lower() in NON_PII_TERMS:
+                    continue
+
+                # False positive filtering for PERSON
+                if entity_type == EntityType.PERSON:
+                    lower_val = clean_val.lower()
+                    norm_val = lower_val[4:].strip() if lower_val.startswith("the ") else lower_val
+
+                    # Pure numbers or all-caps short acronyms (AI, IT, SLA, TPRM) are not people
+                    if clean_val.isdigit() or (clean_val.isupper() and len(clean_val) <= 4):
+                        continue
+                    if sum(c.isalpha() for c in clean_val) < 2:
+                        continue
+
+                    # Reject template patterns and appendices
+                    if any(p.search(clean_val) for p in TEMPLATE_PERSON_PATTERNS):
+                        continue
+
+                    # Reject decision outcomes
+                    if lower_val in DECISION_OUTCOMES or norm_val in DECISION_OUTCOMES:
+                        continue
+
+                    # Reject structural labels and common verbs/nouns
+                    if lower_val in STRUCTURAL_PERSON_EXCLUSIONS or norm_val in STRUCTURAL_PERSON_EXCLUSIONS:
+                        continue
+                    if lower_val in NON_PII_TERMS or norm_val in NON_PII_TERMS:
+                        continue
+
+                    # Reject organizational units: any entity ending with or containing group, team, etc.
+                    if any(re.search(rf"\b{suffix}\b", lower_val) for suffix in ORGANIZATIONAL_SUFFIXES):
+                        continue
+
+                    # Reject operational rule codes, prefixes, or underscores
+                    if "_" in clean_val or any(clean_val.startswith(p) for p in ("QRC_", "QRN_", "QR_", "QR.", "WR.", "CL.", "SLA.", "CD_", "CTL-", "RSK-")):
+                        continue
+
+                    # Filter out terms containing non-PII keywords
+                    if any(term in lower_val for term in ["workflow", "security", "tier", "privacy shield", "ironclad", "torii", "cadence", "optiv", "onetrust", "template", "rule", "trigger", "condition", "reviewer"]):
+                        continue
+
+                    # Check if this span was classified as an Organization by spaCy
+                    if any(s <= result.start < e or result.start <= s < result.end for s, e in org_spans):
+                        logger.debug("Filtered out ORG entity misclassified as PERSON: '%s'", clean_val)
+                        continue
+
+                    # Common enterprise organizations and tech brands
+                    if clean_val.lower() in {"optiv", "onetrust", "cadence", "microsoft", "google", "apple", "amazon"}:
+                        continue
+
+                    # Single capitalized token without surname acting as corporate subject
+                    words = clean_val.split()
+                    if len(words) == 1 and result.score < 0.88:
+                        after_text = block.text[result.end:result.end + 50].lower()
+                        if any(w in after_text for w in [
+                            "is the", "delivering", "advisory", "solutions", "partner", "technologies",
+                            "services", "inc", "llc", "corp", "group", "platform", "software",
+                        ]):
+                            logger.debug("Filtered out corporate subject: '%s'", clean_val)
+                            continue
+
+                    # If Presidio/spaCy lumped multiple names separated by newlines
+                    if "\n" in value:
+                        sub_parts = [line.strip() for line in value.split("\n") if line.strip()]
+                        for sub in sub_parts:
+                            clean_sub = sub.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+                            sub_lower = clean_sub.lower()
+                            if not clean_sub or len(clean_sub) < 2 or sub_lower in NON_PII_TERMS or sum(c.isalpha() for c in clean_sub) < 2:
+                                continue
+                            if any(p.search(clean_sub) for p in TEMPLATE_PERSON_PATTERNS):
+                                continue
+                            if sub_lower in DECISION_OUTCOMES or sub_lower in STRUCTURAL_PERSON_EXCLUSIONS:
+                                continue
+                            if any(re.search(rf"\b{suffix}\b", sub_lower) for suffix in ORGANIZATIONAL_SUFFIXES):
+                                continue
+                            if any(term in sub_lower for term in ["workflow", "security", "tier", "privacy shield"]):
+                                continue
+                            sub_start = block.text.find(sub, result.start)
+                            if sub_start == -1:
+                                sub_start = result.start
+                            sub_end = sub_start + len(sub)
+                            entities.append(PIIEntity(
+                                entity_type=EntityType.PERSON,
+                                value=sub,
+                                source=DetectionSource.NER,
+                                detection_layers=["ner"],
+                                confidence=result.score,
+                                page=block.page,
+                                bbox=block.bbox,
+                                text_start=sub_start,
+                                text_end=sub_end,
+                                block_id=block.block_id,
+                            ))
+                        continue
+
+                # False positive filtering for ADDRESS
+                if entity_type == EntityType.ADDRESS:
+                    lower_addr = clean_val.lower()
+                    norm_addr = lower_addr[4:].strip() if lower_addr.startswith("the ") else lower_addr
+
+                    # Reject decision outcomes
+                    if lower_addr in DECISION_OUTCOMES or norm_addr in DECISION_OUTCOMES:
+                        continue
+                    # Reject legal / document terms
+                    if lower_addr in LEGAL_DOCUMENT_TERMS or norm_addr in LEGAL_DOCUMENT_TERMS:
+                        continue
+                    # Reject standalone countries / jurisdictions
+                    if lower_addr in STANDALONE_JURISDICTIONS or norm_addr in STANDALONE_JURISDICTIONS:
+                        continue
+                    # Reject tool / company names
+                    if lower_addr in TOOL_COMPANY_NAMES or norm_addr in TOOL_COMPANY_NAMES:
+                        continue
+                    # Reject general non-PII terms
+                    if lower_addr in NON_PII_TERMS or norm_addr in NON_PII_TERMS:
+                        continue
+                    # Reject operational prefixes and underscores
+                    if "_" in clean_val or any(clean_val.startswith(p) for p in ("QRC_", "QRN_", "QR_", "QR.", "WR.", "CL.", "SLA.", "CD_", "CTL-", "RSK-")):
+                        continue
+                    # An address cannot be a single token without numbers (e.g. cursor, notify, ownership)
+                    if len(clean_val.split()) < 2 and not any(c.isdigit() for c in clean_val):
+                        continue
+                    # Standalone country/acronym codes and short tokens
+                    if lower_addr in {"ai", "us", "uk", "eu", "apac", "emea", "na", "sa"} or len(clean_val) <= 2:
+                        continue
+
+                # Strict validation for EMAIL
+                if entity_type == EntityType.EMAIL:
+                    if "@" not in clean_val or not re.search(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b", clean_val):
+                        continue
+
+                # False positive filtering for DOB
+                if entity_type == EntityType.DOB:
+                    # Generic full paragraphs or long text blocks are not birth dates
+                    if len(clean_val) > 35 or not any(c.isdigit() for c in clean_val):
+                        continue
+
+                # False positive filtering for EMPLOYEE_ID
+                if entity_type == EntityType.EMPLOYEE_ID:
+                    if len(clean_val) < 4 or re.match(r"^v\d+(\.\d+)?$", clean_val, re.IGNORECASE):
+                        continue
 
                 entity = PIIEntity(
                     entity_type=entity_type,
@@ -211,6 +404,34 @@ class NEREngine:
                 )
 
                 entities.append(entity)
+
+            # Detect initials names pattern (e.g. KC Burney, DK Koran, M. Vossberg, A. Okonkwo-Bell) in block text
+            initial_pattern = re.compile(r"\b[A-Z]{1,2}\.?\s+[A-Z][a-z]+(?:-[A-Z][a-z]+)?\b")
+            for m in initial_pattern.finditer(block.text):
+                cand_name = m.group(0).strip()
+                cand_lower = cand_name.lower()
+                if (
+                    cand_lower not in NON_PII_TERMS
+                    and cand_lower not in STRUCTURAL_PERSON_EXCLUSIONS
+                    and cand_lower not in DECISION_OUTCOMES
+                    and not any(p.search(cand_name) for p in TEMPLATE_PERSON_PATTERNS)
+                    and not any(re.search(rf"\b{suffix}\b", cand_lower) for suffix in ORGANIZATIONAL_SUFFIXES)
+                    and not any(s <= m.start() < e for s, e in org_spans)
+                ):
+                    # Check if already covered
+                    if not any(e.text_start <= m.start() and m.end() <= e.text_end for e in entities):
+                        entities.append(PIIEntity(
+                            entity_type=EntityType.PERSON,
+                            value=cand_name,
+                            source=DetectionSource.NER,
+                            detection_layers=["ner"],
+                            confidence=0.88,
+                            page=block.page,
+                            bbox=block.bbox,
+                            text_start=m.start(),
+                            text_end=m.end(),
+                            block_id=block.block_id,
+                        ))
 
             logger.info(
                 "NEREngine detected %d entities in block '%s' (page %d)",

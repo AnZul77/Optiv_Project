@@ -226,9 +226,16 @@ class EntityResolver:
             return False  # No intersection
 
         intersection = inter_end - inter_start
+        len_a = a.text_end - a.text_start
+        len_b = b.text_end - b.text_start
+
+        # Containment check: if one entity is largely contained inside the other
+        min_len = min(len_a, len_b)
+        if min_len > 0 and (intersection / min_len) >= 0.70:
+            return True
 
         # Calculate union
-        union = (a.text_end - a.text_start) + (b.text_end - b.text_start) - intersection
+        union = len_a + len_b - intersection
 
         if union <= 0:
             return False

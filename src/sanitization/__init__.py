@@ -2,6 +2,7 @@
 """Sanitization helpers for documents, images, and scanned PDFs."""
 
 from .docx_reconstructor import DOCXReconstructor
+from .pptx_reconstructor import PPTXReconstructor
 from .image_redactor import redact_image, redact_image_bytes
 from .pdf_redactor import redact_scanned_pdf
 from .text_redactor import (
@@ -13,6 +14,7 @@ from .text_redactor import (
 
 __all__ = [
     "DOCXReconstructor",
+    "PPTXReconstructor",
     "TextRedactor",
     "redact_image",
     "redact_image_bytes",

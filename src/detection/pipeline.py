@@ -19,10 +19,11 @@ Supports toggling individual layers for ablation experiments (Day 16).
 
 from __future__ import annotations
 
+import re
 import logging
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from src.schema.entities import (
     ContentBlock,
@@ -30,6 +31,21 @@ from src.schema.entities import (
     DetectionResult,
     DetectionMetadata,
     PIIEntity,
+    EntityType,
+    DetectionSource,
+)
+from src.detection.context import (
+    NON_PII_TERMS,
+    ORGANIZATIONAL_SUFFIXES,
+    EMAIL_STRICT_PATTERN,
+)
+from src.detection.ner import (
+    DECISION_OUTCOMES,
+    LEGAL_DOCUMENT_TERMS,
+    STANDALONE_JURISDICTIONS,
+    TOOL_COMPANY_NAMES,
+    STRUCTURAL_PERSON_EXCLUSIONS,
+    TEMPLATE_PERSON_PATTERNS,
 )
 from src.detection.regex import RegexEngine
 from src.detection.ner import NEREngine
@@ -223,6 +239,11 @@ class DetectionPipeline:
         )
 
         # =====================================================================
+        # Precision Filtering & Document-Wide Name Propagation
+        # =====================================================================
+        all_entities = self._clean_and_propagate_entities(all_entities, blocks)
+
+        # =====================================================================
         # Build Result
         # =====================================================================
         elapsed_ms = (time.time() - start_time) * 1000
@@ -279,6 +300,16 @@ class DetectionPipeline:
 
             # Add table cells with inherited column headers
             for table in getattr(page, "tables", []):
+                # Also include table header cells as blocks for detection
+                for h_idx, h_text in enumerate(getattr(table, "headers", [])):
+                    if h_text and h_text.strip():
+                        blocks.append(
+                            ContentBlock(
+                                text=h_text,
+                                block_id=f"tbl_{getattr(table, 'table_index', 0)}_hdr_{h_idx}",
+                                page=page_num,
+                            )
+                        )
                 for row in getattr(table, "rows", []):
                     for cell in row:
                         blocks.append(
@@ -347,3 +378,163 @@ class DetectionPipeline:
             }
 
         return doc
+
+    def _clean_and_propagate_entities(
+        self, entities: List[PIIEntity], blocks: List[ContentBlock]
+    ) -> List[PIIEntity]:
+        """
+        1. Filters out false positives (ordinary words, non-PII terms, invalid emails).
+        2. Collects confirmed PERSON names and propagates them uniformly across all document blocks.
+        3. Resolves and deduplicates the augmented entity list.
+        """
+        cleaned: List[PIIEntity] = []
+        for e in entities:
+            clean_val = e.value.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+            if not clean_val or len(clean_val) < 2:
+                continue
+
+            lower_val = clean_val.lower()
+            norm_val = lower_val[4:].strip() if lower_val.startswith("the ") else lower_val
+
+            # Hard filter non-PII terms
+            if lower_val in NON_PII_TERMS or norm_val in NON_PII_TERMS:
+                continue
+
+            # Strict email check: MUST match email pattern
+            if e.entity_type == EntityType.EMAIL:
+                if not EMAIL_STRICT_PATTERN.search(clean_val):
+                    continue
+
+            # Date check: DOB must contain digits
+            if e.entity_type == EntityType.DOB:
+                if not any(c.isdigit() for c in clean_val) or lower_val in NON_PII_TERMS:
+                    continue
+
+            # Employee ID check: reject version numbers like v6, v6.0 or short strings
+            if e.entity_type == EntityType.EMPLOYEE_ID:
+                if len(clean_val) < 4 or re.match(r"^v\d+(\.\d+)?$", clean_val, re.IGNORECASE):
+                    continue
+
+            # Aadhaar check: must have 12 digits
+            if e.entity_type == EntityType.AADHAAR:
+                digits = re.sub(r"[^\d]", "", clean_val)
+                if len(digits) != 12:
+                    continue
+
+            # Address check: reject decision outcomes, jurisdictions, legal terms, tools, or organizational suffixes
+            if e.entity_type == EntityType.ADDRESS:
+                has_num = any(c.isdigit() for c in clean_val)
+                has_addr_term = any(
+                    re.search(rf"\b{term}\b", clean_val, re.IGNORECASE) for term in [
+                        "street", "st", "road", "rd", "avenue", "ave", "lane", "ln",
+                        "boulevard", "blvd", "drive", "dr", "court", "ct", "crescent",
+                        "cres", "way", "suite", "ste", "apt", "apartment", "building",
+                        "floor", "box", "p.o.", "po box"
+                    ]
+                )
+                if not (has_num or has_addr_term):
+                    continue
+                if re.match(r"^(?:used|using|use|emerging|a documented|documented|high|medium|low|for|to|with)\b", clean_val, re.IGNORECASE):
+                    continue
+                if (
+                    lower_val in DECISION_OUTCOMES or norm_val in DECISION_OUTCOMES
+                    or lower_val in LEGAL_DOCUMENT_TERMS or norm_val in LEGAL_DOCUMENT_TERMS
+                    or lower_val in STANDALONE_JURISDICTIONS or norm_val in STANDALONE_JURISDICTIONS
+                    or lower_val in TOOL_COMPANY_NAMES or norm_val in TOOL_COMPANY_NAMES
+                    or any(re.search(rf"\b{suffix}\b", lower_val) for suffix in ORGANIZATIONAL_SUFFIXES)
+                ):
+                    continue
+
+            # Person check: must not contain corporate, workflow, organizational terms, or template patterns
+            if e.entity_type == EntityType.PERSON:
+                if (
+                    lower_val in DECISION_OUTCOMES or norm_val in DECISION_OUTCOMES
+                    or lower_val in STRUCTURAL_PERSON_EXCLUSIONS or norm_val in STRUCTURAL_PERSON_EXCLUSIONS
+                    or any(p.search(clean_val) for p in TEMPLATE_PERSON_PATTERNS)
+                    or any(re.search(rf"\b{suffix}\b", lower_val) for suffix in ORGANIZATIONAL_SUFFIXES)
+                    or any(term in lower_val for term in [
+                        "workflow", "security", "tier", "privacy shield", "ironclad", "torii",
+                        "cadence", "optiv", "onetrust", "template", "rule", "trigger", "condition",
+                        "reviewer", "description"
+                    ])
+                ):
+                    continue
+
+            cleaned.append(e)
+
+        # Collect confirmed person names
+        confirmed_names: Set[str] = set()
+        for e in cleaned:
+            if e.entity_type == EntityType.PERSON and e.confidence >= 0.60:
+                raw_val = e.value.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+                for line in raw_val.split("\n"):
+                    cand = line.strip(" \t\r\n-.,;:_~#*()[]{}|/\\")
+                    if not cand or len(cand) < 3:
+                        continue
+                    tokens = cand.split()
+                    # STRICT requirement: Must be a multi-token full name (len(tokens) >= 2)
+                    # Single-token words ("Launch", "Email", "Admin", "Trigger") must NEVER be added to confirmed_names
+                    if len(tokens) < 2:
+                        continue
+                    cand_lower = cand.lower()
+                    if cand_lower in NON_PII_TERMS or cand_lower in STRUCTURAL_PERSON_EXCLUSIONS or cand_lower in DECISION_OUTCOMES:
+                        continue
+                    # The name must NOT contain or end with organizational suffixes (group, team, committee, etc.)
+                    if any(re.search(rf"\b{suffix}\b", cand_lower) for suffix in ORGANIZATIONAL_SUFFIXES):
+                        continue
+                    # Must not match template patterns or appendices
+                    if any(p.search(cand) for p in TEMPLATE_PERSON_PATTERNS):
+                        continue
+                    # Each token must be capitalized (t[0].isupper()), length >= 2, and not in generic/non-PII vocabulary
+                    valid_tokens = True
+                    for t in tokens:
+                        clean_t = t.strip(".,;:()")
+                        if len(clean_t) < 2 or not clean_t[0].isupper():
+                            valid_tokens = False
+                            break
+                        if clean_t.lower() in NON_PII_TERMS or clean_t.lower() in STRUCTURAL_PERSON_EXCLUSIONS:
+                            valid_tokens = False
+                            break
+                    if not valid_tokens:
+                        continue
+
+                    confirmed_names.add(cand)
+
+        if not confirmed_names:
+            return cleaned
+
+        # Propagate confirmed names across all blocks
+        propagated: List[PIIEntity] = list(cleaned)
+        block_entities_map: Dict[str, List[Tuple[int, int]]] = defaultdict(list)
+        for e in cleaned:
+            block_entities_map[e.block_id].append((e.text_start, e.text_end))
+
+        for block in blocks:
+            if not block.text or not block.text.strip():
+                continue
+            for name in confirmed_names:
+                pattern = re.compile(rf"\b{re.escape(name)}\b", re.IGNORECASE)
+                for m in pattern.finditer(block.text):
+                    m_start, m_end = m.start(), m.end()
+                    existing_spans = block_entities_map.get(block.block_id, [])
+                    # Check if already covered by an entity in this block
+                    if any(s <= m_start and m_end <= e for s, e in existing_spans):
+                        continue
+
+                    new_entity = PIIEntity(
+                        entity_type=EntityType.PERSON,
+                        value=block.text[m_start:m_end],
+                        source=DetectionSource.CONTEXT,
+                        detection_layers=["context"],
+                        confidence=0.92,
+                        page=block.page,
+                        bbox=block.bbox,
+                        text_start=m_start,
+                        text_end=m_end,
+                        block_id=block.block_id,
+                        context_cues=["document_wide_propagation"],
+                    )
+                    propagated.append(new_entity)
+                    existing_spans.append((m_start, m_end))
+
+        return self.resolver.resolve(propagated)

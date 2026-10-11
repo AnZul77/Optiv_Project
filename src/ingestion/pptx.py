@@ -178,6 +178,16 @@ class PPTXExtractor:
                 all_rows = list(table.rows)
                 if all_rows:
                     headers = [cell.text.strip() for cell in all_rows[0].cells]
+                    # Also emit table header cells as blocks so names in headers (e.g. RACI tables) are detected
+                    for c_idx, cell in enumerate(all_rows[0].cells):
+                        hdr_text = cell.text.strip()
+                        if hdr_text:
+                            blocks.append(ExtractedBlock(
+                                block_id=f"p{slide_idx}_tbl{len(tables)+1}_hdr_{c_idx}",
+                                page=slide_idx,
+                                block_type="table_header",
+                                text=hdr_text,
+                            ))
                     table_rows = []
                     for r_idx, row in enumerate(all_rows[1:], start=1):
                         row_cells = []

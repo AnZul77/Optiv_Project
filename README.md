@@ -81,12 +81,18 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 2. Run Automated Unit Tests
+### 2. Run Automated Unit & Integration Tests
 
-Run the full pytest suite (19 unit tests covering ingestion, security limits, input safety, document reconstruction, and integrity guards):
+Run the full pytest suite (369 unit tests covering ingestion, OCR, detection layers, precision guards, security limits, input safety, and document reconstruction):
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/unit/ -v
+```
+
+Run precision and multimodal integration tests (DOCX, PPTX, and scanned PDF):
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/unit/test_precision_fixes.py tests/integration/test_multimodal_artifacts.py -v
 ```
 
 ### 3. Run Interactive Smoke Test & Demo

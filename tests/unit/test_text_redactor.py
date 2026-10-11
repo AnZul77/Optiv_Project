@@ -161,3 +161,21 @@ class TestHelperFunctions:
         assert "[REDACTED:PERSON]" in redacted
         assert "[REDACTED:SSN]" in redacted
         assert "John Doe" not in redacted
+
+    def test_consistent_pseudonymization_mode(self):
+        redactor = TextRedactor(mode="pseudonym")
+        text = "Desmond met with Alice. Later Desmond called Bob and Desmond sent Alice an email."
+        entities = [
+            PIIEntity(entity_type=EntityType.PERSON, text_start=0, text_end=7, action=Action.REDACT),
+            PIIEntity(entity_type=EntityType.PERSON, text_start=17, text_end=22, action=Action.REDACT),
+            PIIEntity(entity_type=EntityType.PERSON, text_start=30, text_end=37, action=Action.REDACT),
+            PIIEntity(entity_type=EntityType.PERSON, text_start=45, text_end=48, action=Action.REDACT),
+            PIIEntity(entity_type=EntityType.PERSON, text_start=53, text_end=60, action=Action.REDACT),
+            PIIEntity(entity_type=EntityType.PERSON, text_start=66, text_end=71, action=Action.REDACT),
+        ]
+        result = redactor.redact_text(text, entities)
+        # Desmond should consistently be [PERSON_1], Alice [PERSON_2], Bob [PERSON_3]
+        assert "[PERSON_1] met with [PERSON_2]." in result.text
+        assert "Later [PERSON_1] called [PERSON_3] and [PERSON_1] sent [PERSON_2] an email." in result.text
+
+
