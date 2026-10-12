@@ -1,0 +1,131 @@
+{
+  "document_id": "synthetic_security_incident",
+  "filename": "synthetic_security_incident.json",
+  "title": "SOC Cyber Security Incident Response & Forensic Ticket Dossier",
+  "description": "Security operations report combining allow-listed business ticket references (INC-2026-0417, RSK-001, CTL-IAM-004, ISO-27001) alongside authentic personal PII.",
+  "pages": 2,
+  "blocks": [
+    {
+      "block_id": "sec_b1",
+      "page": 1,
+      "section_context": "Incident Governance & Allow-Listed Codes",
+      "text": "Cyber Security Incident Report for INC-2026-0417 cataloged under Risk RSK-001 and Control CTL-IAM-004."
+    },
+    {
+      "block_id": "sec_b2",
+      "page": 1,
+      "section_context": "Incident Governance & Allow-Listed Codes",
+      "text": "Governed by Information Security Policy POL-901 and International Standard ISO-27001 under AUDIT-2026."
+    },
+    {
+      "block_id": "sec_b3",
+      "page": 1,
+      "section_context": "Response Team & Incident Commander",
+      "text": "Incident Commander Employee Name: Alice Walker leads triage."
+    },
+    {
+      "block_id": "sec_b4",
+      "page": 1,
+      "section_context": "Response Team & Incident Commander",
+      "text": "Corporate Email: alice.walker@optiv-security.com with Mobile Phone: +1 (202) 555-0143."
+    },
+    {
+      "block_id": "sec_b5",
+      "page": 2,
+      "section_context": "Compromised Asset & PII Impact Assessment",
+      "text": "Target User Employee Name: Marcus Donahue assigned Employee ID: EMP-8239."
+    },
+    {
+      "block_id": "sec_b6",
+      "page": 2,
+      "section_context": "Compromised Asset & PII Impact Assessment",
+      "text": "Compromised Tax ID / SSN: 219-45-7890 confirmed leaked in memory dump."
+    },
+    {
+      "block_id": "sec_b7",
+      "page": 2,
+      "section_context": "Compromised Asset & PII Impact Assessment",
+      "text": "Permanent Account Number: ABCPE1234F and Passport No: C8839201 extracted from workstation cache."
+    },
+    {
+      "block_id": "sec_b8",
+      "page": 2,
+      "section_context": "Compromised Asset & PII Impact Assessment",
+      "text": "Corporate Credit Card: 4532015000000007 flagged for immediate card revocation."
+    }
+  ],
+  "full_text": "Cyber Security Incident Report for INC-2026-0417 cataloged under Risk RSK-001 and Control CTL-IAM-004.\n\nGoverned by Information Security Policy POL-901 and International Standard ISO-27001 under AUDIT-2026.\n\nIncident Commander Employee Name: Alice Walker leads triage.\n\nCorporate Email: alice.walker@optiv-security.com with Mobile Phone: +1 (202) 555-0143.\n\nTarget User Employee Name: Marcus Donahue assigned Employee ID: EMP-8239.\n\nCompromised Tax ID / SSN: 219-45-7890 confirmed leaked in memory dump.\n\nPermanent Account Number: ABCPE1234F and Passport No: C8839201 extracted from workstation cache.\n\nCorporate Credit Card: 4532015000000007 flagged for immediate card revocation.",
+  "ground_truth_entities": [
+    {
+      "type": "PERSON",
+      "value_snippet": "Alice Walker",
+      "page": 1,
+      "text_start": 34,
+      "text_end": 46
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "alice.walker@optiv-security.com",
+      "page": 1,
+      "text_start": 17,
+      "text_end": 48
+    },
+    {
+      "type": "PHONE",
+      "value_snippet": "+1 (202) 555-0143",
+      "page": 1,
+      "text_start": 68,
+      "text_end": 85
+    },
+    {
+      "type": "PERSON",
+      "value_snippet": "Marcus Donahue",
+      "page": 2,
+      "text_start": 27,
+      "text_end": 41
+    },
+    {
+      "type": "EMPLOYEE_ID",
+      "value_snippet": "EMP-8239",
+      "page": 2,
+      "text_start": 64,
+      "text_end": 72
+    },
+    {
+      "type": "SSN",
+      "value_snippet": "219-45-7890",
+      "page": 2,
+      "text_start": 25,
+      "text_end": 36
+    },
+    {
+      "type": "PAN",
+      "value_snippet": "ABCPE1234F",
+      "page": 2,
+      "text_start": 26,
+      "text_end": 36
+    },
+    {
+      "type": "PASSPORT",
+      "value_snippet": "C8839201",
+      "page": 2,
+      "text_start": 54,
+      "text_end": 62
+    },
+    {
+      "type": "CARD",
+      "value_snippet": "4532015000000007",
+      "page": 2,
+      "text_start": 23,
+      "text_end": 39
+    }
+  ],
+  "allow_listed_tokens": [
+    "INC-2026-0417",
+    "RSK-001",
+    "CTL-IAM-004",
+    "ISO-27001",
+    "AUDIT-2026",
+    "POL-901"
+  ]
+}

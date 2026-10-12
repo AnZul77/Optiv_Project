@@ -1,0 +1,80 @@
+{
+  "spec_version": "1.0.0",
+  "benchmark_name": "PII Security Firewall Frozen Held-Out Benchmark",
+  "purpose": "Frozen, never-tuned benchmark evaluation dataset ensuring rigorous out-of-sample generalization.",
+  "test_lock": {
+    "locked_date": "2026-10-11",
+    "immutable": true,
+    "document_count": 5,
+    "document_ids": [
+      "heldout_doc_01",
+      "heldout_doc_02",
+      "heldout_doc_03",
+      "heldout_doc_04",
+      "heldout_doc_05"
+    ],
+    "document_checksums": {
+      "heldout_doc_01": {
+        "primary_file": "heldout_doc_01.json",
+        "alias_file": "heldout_document_1.json",
+        "sha256": "ad13122a82841ab3a5ce84e6116af05cc950076efb8ed4d260159da8cb817058",
+        "total_entities": 8,
+        "critical_entities": 4
+      },
+      "heldout_doc_02": {
+        "primary_file": "heldout_doc_02.json",
+        "alias_file": "heldout_document_2.json",
+        "sha256": "14889acebcad7ad6deb654f8ee80a787e810a5066f0fafa5718d0e5b5fd04f9e",
+        "total_entities": 8,
+        "critical_entities": 2
+      },
+      "heldout_doc_03": {
+        "primary_file": "heldout_doc_03.json",
+        "alias_file": "heldout_document_3.json",
+        "sha256": "f9eed1040a7a2358db761e20d8df2ccf30e84e006cb39a7e9a40c5c986d1753e",
+        "total_entities": 8,
+        "critical_entities": 2
+      },
+      "heldout_doc_04": {
+        "primary_file": "heldout_doc_04.json",
+        "alias_file": "heldout_document_4.json",
+        "sha256": "18fe555d82b925bb19fe1fb73cb57a4bc64269f5b5a29be4af5a3bab621b16dc",
+        "total_entities": 7,
+        "critical_entities": 2
+      },
+      "heldout_doc_05": {
+        "primary_file": "heldout_doc_05.json",
+        "alias_file": "heldout_document_5.json",
+        "sha256": "8deac8dd0f8e1e8fb191181004a83bc98ebcadbab36456ffd67be6cdfd44641c",
+        "total_entities": 10,
+        "critical_entities": 4
+      }
+    }
+  },
+  "evaluation_contract": {
+    "critical_pii_recall_threshold": 0.99,
+    "overall_recall_threshold": 0.95,
+    "document_leak_rate_threshold": 0.0,
+    "over_redaction_rate_threshold": 0.1,
+    "minimum_entities_tested": 41,
+    "critical_entities_tested": 14
+  },
+  "taxonomy_coverage": [
+    "SSN",
+    "PAN",
+    "AADHAAR",
+    "PASSPORT",
+    "NINO",
+    "CARD",
+    "PERSON",
+    "EMAIL",
+    "PHONE",
+    "DOB",
+    "ADDRESS",
+    "EMPLOYEE_ID",
+    "DIRECTOR_ID",
+    "GST",
+    "IFSC",
+    "UPI"
+  ]
+}

@@ -28,9 +28,11 @@ from src.ingestion.dispatcher import route_document
 from src.detection.pipeline import DetectionPipeline
 from src.detection.context import NON_PII_TERMS, EMAIL_STRICT_PATTERN
 from src.policy.policy import PolicyEngine
+from src.ocr.regions import find_pii_spans_in_text, extract_word_level_pii_boxes
 from src.sanitization.docx_reconstructor import DOCXReconstructor
 from src.sanitization.pptx_reconstructor import PPTXReconstructor
 from src.sanitization.pdf_redactor import redact_scanned_pdf
+from src.ocr.regions import find_pii_spans_in_text
 
 
 def get_replacements(canonical_doc):
@@ -136,6 +138,7 @@ def reconstruct_docx():
         out_path,
         replacements
     )
+    target_out = out_path
     if not success and "Permission denied" in str(err):
         temp_out = "data/outputs/sanitized_Cadence_TPRM_Training_v2.docx"
         s2, e2 = DOCXReconstructor.replace_text_in_document(
@@ -146,156 +149,23 @@ def reconstruct_docx():
         if s2:
             print(f"  [!] Target '{out_path}' is open in an external viewer. Successfully updated sanitized copy in '{temp_out}'.")
             success, err = True, None
+            target_out = temp_out
+
+    # Inspect embedded images and redact sensitive PII text regions
+    if success and os.path.exists(target_out):
+        image_replacements = DOCXReconstructor.redact_embedded_images(target_out)
+        if image_replacements:
+            s_img, err_img = DOCXReconstructor.replace_images_in_document(
+                target_out, target_out, image_replacements
+            )
+            if s_img:
+                print(f"  [+] Redacted sensitive regions across {len(image_replacements)} embedded images.")
+
     duration = time.time() - t0
     print(f"DOCX Reconstructed in {duration:.2f}s: success={success}, error={err}")
-    if os.path.exists(out_path):
-        print(f"Output saved to: {out_path} ({os.path.getsize(out_path):,} bytes)")
+    if os.path.exists(target_out):
+        print(f"Output saved to: {target_out} ({os.path.getsize(target_out):,} bytes)")
     return success
-
-
-def find_pii_spans_in_text(raw_text):
-    """
-    Finds character start/end intervals for all PII elements within a line of OCR text.
-    """
-    text_lower = raw_text.lower()
-    spans = []
-    
-    # 1. Exact phrases & addresses
-    exact_phrases = [
-        "245 hudson street, new york ny 10013",
-        "245 hudson street", "new york ny 10013",
-        "1180 ashwood lane, apartment 4c, jersey city, nj 07302",
-        "1180 ashwood lane", "jersey city, nj 07302", "07302",
-        "1842 willow tree ln, suite 400, chicago, il 60601",
-        "1842 willow tree ln", "chicago, il 60601",
-        "88 willowbank court, hoboken", "88 willowbank court", "hoboken", "07030",
-        "2214 palmetto crescent", "coral gables", "33134",
-        "anthony p. brightwell", "anthony brightwell",
-        "delphine r. okonjo", "delphine okonjo",
-        "rosalind m. achterberg", "rosalind achterberg", "desmond achterberg",
-        "helena vorstermann", "helena vorsteimann", "helena vorsiermann",
-        "sunita balakrishnan", "s. balakrishnan",
-        "tobias lindqvist", "t. lindqvist",
-        "miriam achebe", "miriam t. achebe", "m. t. achebe", "m. achebe", "mma acuch",
-        "rafael e. duarte", "rafael duarte",
-        "yusuf o. balogun", "yusuf balogun", "yusuf o.balogun",
-        "lars-erik brannstrom", "l. brannstrom", "lars erik brannstrom",
-        "priyanka s. raghavan", "priyanka raghavan", "p. s. raghavan", "p. raghavan",
-        "harriet l. okafor", "harriet okafor", "h. okafor",
-        "elena petrovska", "adaeze onwuka", "adaeze okonkwo-bell",
-        "hiroshi yamagata", "rohan deshmukh",
-        "arjun mehta", "marta szewczyk", "maria szewczyk", "maria szewczvk",
-        "michael r. henderson", "michael henderson",
-        "naomi k. osadebe", "naomi osadebe", "n. k. osadebe",
-        "caleb a. whitfield", "caleb whitfield", "c. a. whitfield",
-        "yevgeni a. sorokina", "yevgeni sorokina",
-        "fumiko l. nakagawa", "fumiko nakagawa",
-        "devansh kulkarni", "d. kulkarni",
-        "fatima z. qureshi", "fatima qureshi", "f. z. qureshi",
-        "arvind k. pillai", "arvind pillai", "a. k. pillai",
-        "mireille dubois-kane", "mireille dubois kane",
-        "denis kowalczyk", "d. kowalczyk",
-        "grazyna wieczorek", "g. wieczorek",
-        "ifeoma adeyemi", "i. adeyemi",
-        "emilio ramos-vega", "ramos-vega", "prieto-ramos",
-        "gregor halvorsen", "sneha vaidyanathan", "marchetti-lang",
-        "tk4820913", "aqbpr7741l", "bktpv7790h", "bktpvzz9oh"
-    ]
-    for phrase in exact_phrases:
-        start = 0
-        while True:
-            idx = text_lower.find(phrase, start)
-            if idx == -1:
-                break
-            spans.append((idx, idx + len(phrase)))
-            start = idx + len(phrase)
-            
-    # 2. Individual target names
-    target_names = [
-        "achebe", "miriam", "lindqvist", "tobias", "brightwell", "anthony", "okonjo", "delphine",
-        "achterberg", "rosalind", "desmond", "vorstermann", "vorsteimann", "vorsiermann", "helena",
-        "balakrishnan", "sunita", "mehta", "arjun", "duarte", "rafael",
-        "balogun", "baloqun", "yusuf", "brannstrom", "brannstiom",
-        "raghavan", "priyanka", "okafor", "okalor", "harriet", "petrovska", "elena",
-        "onwuka", "adaeze", "yamagata", "hiroshi", "deshmukh", "rohan",
-        "szewczyk", "szewczvk", "marta", "mana", "pillai", "osadebe", "naomi", "nosadebe",
-        "marchetti", "marchelli", "sofia", "sorokina", "yevgeni",
-        "nakagawa", "fumiko", "kulkarni", "devansh", "vasquez", "holt",
-        "bryce", "nathaniel", "adeyemi", "ifeoma", "chatterjee", "wieczorek", "grazyna",
-        "salcedo", "vaidyanathan", "kowalczyk", "qureshi", "faiq", "fatima", "fatiha", "faliina",
-        "osei-tutu", "dubois-kane", "mireille", "whitfield", "whitfeld", "lindenau",
-        "henderson", "michael", "quarshie", "donahue", "marcus", "rostova", "jenkins", "sarah",
-        "vossberg", "marguerite", "bertucci", "enrico", "aarnio", "sami", "wenzel", "gillian",
-        "brandvold", "noah", "hyeon", "caleb", "denis", "emilio", "prieto", "halvorsen", "gregor", "sneha",
-        "hyun-woo", "nikolai", "solveig", "emiliano", "colette", "imani", "gerhardt",
-        "bartholomew", "nkemdirim", "yasmin", "el-katib", "quintanilla"
-    ]
-    for name in target_names:
-        for m in re.finditer(rf"\b{re.escape(name)}\b", text_lower):
-            spans.append(m.span())
-            
-    # 3. Employee & Enterprise IDs (EMP-XXXXX, MER-XXXXX, DIR-XXXXX, and OCR variants CMP, LMP, FHP, ENP, IEMP)
-    for m in re.finditer(r"\b(?:EMP|MER|DIR|CMP|LMP|FHP|IEMP|ENP)[-\s]?[0-9A-Z]{4,7}\b", raw_text, re.IGNORECASE):
-        spans.append(m.span())
-        
-    # Bare 5-digit employee ID after delimiter, excluding ISO/standard numbers
-    for m in re.finditer(r"(?<=[,\(\s\-])\d{5}(?=[,\)\s\.\-]|$)", raw_text):
-        val = m.group(0)
-        if val not in ["31000", "27001", "22301", "00000", "20171"]:
-            spans.append(m.span())
-        
-    # 4. Email addresses (standard or OCR-split)
-    for m in re.finditer(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b", raw_text):
-        spans.append(m.span())
-    for m in re.finditer(r"\b[a-zA-Z0-9._%+\-]+@\s*(?:cadence|caderce|cadlence|meridian|halloranpike|optiv)[a-zA-Z0-9.:\-\s]*\b", raw_text, re.IGNORECASE):
-        spans.append(m.span())
-    # OCR emails where @ was merged: e.g. foo@cadencelg com or fooacadencefg com
-    for m in re.finditer(r"\b[a-zA-Z0-9._%+\-]+[a@](?:cadence|caderce|cadlence)[a-zA-Z0-9.:\-\s]*\b", raw_text, re.IGNORECASE):
-        if any(dom in m.group(0).lower() for dom in ["com", "org", "cone", "con"]):
-            spans.append(m.span())
-        
-    # 5. Phone numbers
-    phone_pattern = re.compile(r"(?:\+?\d{1,3}[\s-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}")
-    for m in phone_pattern.finditer(raw_text):
-        val = m.group(0)
-        digits = sum(c.isdigit() for c in val)
-        # Avoid matching Issue IDs like 155-2026-0066 or ISO standards or dates
-        if 9 <= digits <= 15 and not val.startswith("155-") and not val.startswith("30410"):
-            spans.append(m.span())
-            
-    # 6. SSN (900-XX-XXXX, 293-XX-XXXX)
-    for m in re.finditer(r"\b\d{3}-\d{2}-\d{4}\b", raw_text):
-        spans.append(m.span())
-        
-    # 7. Indian PAN
-    for m in re.finditer(r"\b[A-Z]{5}\d{4}[A-Z]\b", raw_text):
-        spans.append(m.span())
-    for m in re.finditer(r"\bPAN\s+[A-Z0-9]{9,10}\b", raw_text, re.IGNORECASE):
-        spans.append(m.span())
-        
-    # 8. Passport (C8839201, TK4820913)
-    for m in re.finditer(r"\b(?:TK|C)\d{7}\b", raw_text):
-        spans.append(m.span())
-        
-    # 9. Dates of birth (DOB: 11/04/1978, 28 Feb 1979, 14 July 1991, August 1996)
-    for m in re.finditer(r"\b(?:DOB[:\s]+)?(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})\b", raw_text, re.IGNORECASE):
-        if "dob" in text_lower or any(yr in m.group(0) for yr in ["1978", "1979", "1991", "1996"]):
-            spans.append(m.span())
-            
-    if not spans:
-        return []
-        
-    # Sort and merge overlapping spans
-    spans.sort()
-    merged = [spans[0]]
-    for cur in spans[1:]:
-        prev = merged[-1]
-        if cur[0] <= prev[1]:
-            merged[-1] = (prev[0], max(prev[1], cur[1]))
-        else:
-            merged.append(cur)
-            
-    return merged
 
 
 def reconstruct_pdf():
@@ -362,44 +232,7 @@ def reconstruct_pdf():
                 ]
             }
             
-        page_boxes_list = []
-        for (bbox_pts, text_line, prob) in results:
-            if not text_line or not text_line.strip():
-                continue
-                
-            spans = find_pii_spans_in_text(text_line)
-            if not spans:
-                continue
-                
-            x0 = min(pt[0] for pt in bbox_pts)
-            x1 = max(pt[0] for pt in bbox_pts)
-            y0 = min(pt[1] for pt in bbox_pts)
-            y1 = max(pt[1] for pt in bbox_pts)
-            
-            line_len = max(1, len(text_line))
-            char_w = (x1 - x0) / line_len
-            
-            for (s_idx, e_idx) in spans:
-                box_x0 = x0 + s_idx * char_w
-                box_x1 = x0 + e_idx * char_w
-                
-                # Check if this span encompasses almost the entire line
-                is_full_line = (len(spans) == 1 and (e_idx - s_idx) >= 0.70 * line_len) or (s_idx <= 2 and e_idx >= line_len - 2)
-                if is_full_line:
-                    norm_box = [
-                        max(0.0, min(1.0, (x0 - 4.0) / w_px)),
-                        max(0.0, min(1.0, (y0 - 3.0) / h_px)),
-                        max(0.0, min(1.0, (x1 + 4.0) / w_px)),
-                        max(0.0, min(1.0, (y1 + 3.0) / h_px)),
-                    ]
-                else:
-                    norm_box = [
-                        max(0.0, min(1.0, (box_x0 - 5.0) / w_px)),
-                        max(0.0, min(1.0, (y0 - 3.0) / h_px)),
-                        max(0.0, min(1.0, (box_x1 + 5.0) / w_px)),
-                        max(0.0, min(1.0, (y1 + 3.0) / h_px)),
-                    ]
-                page_boxes_list.append(norm_box)
+        page_boxes_list = extract_word_level_pii_boxes(results, w_px, h_px)
                 
         if page_boxes_list:
             page_boxes[p_num] = page_boxes_list

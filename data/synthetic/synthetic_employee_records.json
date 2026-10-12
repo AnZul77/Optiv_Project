@@ -1,0 +1,212 @@
+{
+  "document_id": "synthetic_employee_records",
+  "filename": "synthetic_employee_records.json",
+  "title": "Confidential Enterprise Personnel Directory & HR Records",
+  "description": "Comprehensive employee records containing personal names, employee IDs, SSNs, DOBs, personal emails, phone numbers, and home addresses.",
+  "pages": 3,
+  "blocks": [
+    {
+      "block_id": "emp_b1",
+      "page": 1,
+      "section_context": "Engineering & Technology Leadership",
+      "text": "Employee Name: Elena Rostova holding position of Lead Security Architect. Employee ID: EMP-8239."
+    },
+    {
+      "block_id": "emp_b2",
+      "page": 1,
+      "section_context": "Engineering & Technology Leadership",
+      "text": "US Tax SSN: 219-45-7890 on file. Date of Birth: 14/07/1988."
+    },
+    {
+      "block_id": "emp_b3",
+      "page": 1,
+      "section_context": "Engineering & Technology Leadership",
+      "text": "Corporate Email: elena.rostova@optiv-security.com and Personal Email: elena.rostova@personal-mail.com."
+    },
+    {
+      "block_id": "emp_b4",
+      "page": 1,
+      "section_context": "Engineering & Technology Leadership",
+      "text": "Mobile Phone: +1 (415) 555-2671. Residential Address: 1842 Willow Tree Ln, Suite 400, Chicago, IL 60601."
+    },
+    {
+      "block_id": "emp_b5",
+      "page": 2,
+      "section_context": "Systems & DevOps Department",
+      "text": "Employee Name: David K. Miller holding Employee ID: EMP-908234."
+    },
+    {
+      "block_id": "emp_b6",
+      "page": 2,
+      "section_context": "Systems & DevOps Department",
+      "text": "US Tax SSN: 123-45-6789. Date of Birth: 1985-11-23."
+    },
+    {
+      "block_id": "emp_b7",
+      "page": 2,
+      "section_context": "Systems & DevOps Department",
+      "text": "Personal Email: david.miller@gmail.com with Mobile Phone: +1 (312) 555-0199."
+    },
+    {
+      "block_id": "emp_b8",
+      "page": 2,
+      "section_context": "Systems & DevOps Department",
+      "text": "Residential Address: 742 Evergreen Terrace, Springfield, OR 97477."
+    },
+    {
+      "block_id": "emp_b9",
+      "page": 3,
+      "section_context": "APAC Regional Operations",
+      "text": "Employee Name: Ananya Sharma assigned Employee ID: EMP-10492. Date of Birth: 03/22/1991."
+    },
+    {
+      "block_id": "emp_b10",
+      "page": 3,
+      "section_context": "APAC Regional Operations",
+      "text": "Corporate Email: ananya.sharma@cadence-group.com and Mobile Phone: +91 98123 45678."
+    }
+  ],
+  "full_text": "Employee Name: Elena Rostova holding position of Lead Security Architect. Employee ID: EMP-8239.\n\nUS Tax SSN: 219-45-7890 on file. Date of Birth: 14/07/1988.\n\nCorporate Email: elena.rostova@optiv-security.com and Personal Email: elena.rostova@personal-mail.com.\n\nMobile Phone: +1 (415) 555-2671. Residential Address: 1842 Willow Tree Ln, Suite 400, Chicago, IL 60601.\n\nEmployee Name: David K. Miller holding Employee ID: EMP-908234.\n\nUS Tax SSN: 123-45-6789. Date of Birth: 1985-11-23.\n\nPersonal Email: david.miller@gmail.com with Mobile Phone: +1 (312) 555-0199.\n\nResidential Address: 742 Evergreen Terrace, Springfield, OR 97477.\n\nEmployee Name: Ananya Sharma assigned Employee ID: EMP-10492. Date of Birth: 03/22/1991.\n\nCorporate Email: ananya.sharma@cadence-group.com and Mobile Phone: +91 98123 45678.",
+  "ground_truth_entities": [
+    {
+      "type": "PERSON",
+      "value_snippet": "Elena Rostova",
+      "page": 1,
+      "text_start": 15,
+      "text_end": 28
+    },
+    {
+      "type": "EMPLOYEE_ID",
+      "value_snippet": "EMP-8239",
+      "page": 1,
+      "text_start": 87,
+      "text_end": 95
+    },
+    {
+      "type": "SSN",
+      "value_snippet": "219-45-7890",
+      "page": 1,
+      "text_start": 12,
+      "text_end": 23
+    },
+    {
+      "type": "DOB",
+      "value_snippet": "14/07/1988",
+      "page": 1,
+      "text_start": 47,
+      "text_end": 57
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "elena.rostova@optiv-security.com",
+      "page": 1,
+      "text_start": 17,
+      "text_end": 48
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "elena.rostova@personal-mail.com",
+      "page": 1,
+      "text_start": 69,
+      "text_end": 100
+    },
+    {
+      "type": "PHONE",
+      "value_snippet": "+1 (415) 555-2671",
+      "page": 1,
+      "text_start": 14,
+      "text_end": 31
+    },
+    {
+      "type": "ADDRESS",
+      "value_snippet": "1842 Willow Tree Ln, Suite 400, Chicago, IL 60601",
+      "page": 1,
+      "text_start": 54,
+      "text_end": 103
+    },
+    {
+      "type": "PERSON",
+      "value_snippet": "David K. Miller",
+      "page": 2,
+      "text_start": 15,
+      "text_end": 30
+    },
+    {
+      "type": "EMPLOYEE_ID",
+      "value_snippet": "EMP-908234",
+      "page": 2,
+      "text_start": 51,
+      "text_end": 61
+    },
+    {
+      "type": "SSN",
+      "value_snippet": "123-45-6789",
+      "page": 2,
+      "text_start": 12,
+      "text_end": 23
+    },
+    {
+      "type": "DOB",
+      "value_snippet": "1985-11-23",
+      "page": 2,
+      "text_start": 39,
+      "text_end": 49
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "david.miller@gmail.com",
+      "page": 2,
+      "text_start": 16,
+      "text_end": 38
+    },
+    {
+      "type": "PHONE",
+      "value_snippet": "+1 (312) 555-0199",
+      "page": 2,
+      "text_start": 57,
+      "text_end": 74
+    },
+    {
+      "type": "ADDRESS",
+      "value_snippet": "742 Evergreen Terrace, Springfield, OR 97477",
+      "page": 2,
+      "text_start": 21,
+      "text_end": 65
+    },
+    {
+      "type": "PERSON",
+      "value_snippet": "Ananya Sharma",
+      "page": 3,
+      "text_start": 15,
+      "text_end": 28
+    },
+    {
+      "type": "EMPLOYEE_ID",
+      "value_snippet": "EMP-10492",
+      "page": 3,
+      "text_start": 49,
+      "text_end": 58
+    },
+    {
+      "type": "DOB",
+      "value_snippet": "03/22/1991",
+      "page": 3,
+      "text_start": 74,
+      "text_end": 84
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "ananya.sharma@cadence-group.com",
+      "page": 3,
+      "text_start": 17,
+      "text_end": 48
+    },
+    {
+      "type": "PHONE",
+      "value_snippet": "+91 98123 45678",
+      "page": 3,
+      "text_start": 68,
+      "text_end": 83
+    }
+  ]
+}

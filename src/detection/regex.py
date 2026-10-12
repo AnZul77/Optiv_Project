@@ -307,10 +307,10 @@ def _build_pattern_catalog() -> Dict[EntityType, List[PIIPattern]]:
         PIIPattern(
             entity_type=EntityType.DIRECTOR_ID,
             pattern=re.compile(
-                r"\bDIN[-\s]?\d{8}\b", re.IGNORECASE
+                r"\b(?:DIN|DIR)[-\s]?\d{4,8}\b", re.IGNORECASE
             ),
             base_confidence=0.90,
-            description="Director Identification Number: DIN-XXXXXXXX",
+            description="Director Identification Number / Director ID: DIN-XXXXXXXX or DIR-XXXXX",
         ),
     ]
 
@@ -663,4 +663,6 @@ _QUICK_CONTEXT_CUES: Dict[EntityType, List[str]] = {
     ],
     EntityType.TAX_ID: ["tin", "tax id", "tax identification", "ein", "employer id"],
     EntityType.EMPLOYEE_ID: ["employee", "emp id", "staff no", "employee number"],
+    EntityType.PAN: ["pan", "permanent account", "pan card", "pan no"],
+    EntityType.DIRECTOR_ID: ["din", "director id", "director identification", "dir no"],
 }

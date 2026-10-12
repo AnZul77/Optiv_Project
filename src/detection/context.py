@@ -95,7 +95,7 @@ CUE_PATTERNS: Dict[EntityType, List[str]] = {
         "savings account", "current account", "acct no", "acct",
     ],
     EntityType.DIRECTOR_ID: [
-        "din", "director id", "director identification",
+        "din", "director id", "director identification", "dir", "dir id", "dir no",
     ],
     EntityType.IFSC: [
         "ifsc", "branch code", "neft", "rtgs", "bank code",
@@ -118,6 +118,10 @@ CUE_PATTERNS: Dict[EntityType, List[str]] = {
         "name", "employee name", "full name", "first name",
         "last name", "applicant", "candidate", "holder name",
         "qa reviewer", "reviewer", "approver",
+    ],
+    EntityType.SENSITIVE_SCREENSHOT: [
+        "screenshot", "evidence screenshot", "database image", "vendor database",
+        "system evidence", "database snapshot", "console image",
     ],
 }
 
@@ -652,7 +656,8 @@ class ContextEngine:
                     EntityType.SSN, EntityType.PASSPORT, EntityType.PHONE,
                     EntityType.PAN, EntityType.AADHAAR, EntityType.BANK_ACCOUNT,
                     EntityType.CARD, EntityType.IFSC, EntityType.GST,
-                    EntityType.TAX_ID, EntityType.DIRECTOR_ID, EntityType.EMAIL
+                    EntityType.TAX_ID, EntityType.DIRECTOR_ID, EntityType.EMAIL,
+                    EntityType.DOB, EntityType.EMPLOYEE_ID,
                 }:
                     pattern = re.compile(
                         rf"\b{re.escape(cue)}\b\s*[:=\-]?\s*(?:is\s+)?([^\s,;\n\r\t]+)",
@@ -660,7 +665,7 @@ class ContextEngine:
                     )
                 else:
                     pattern = re.compile(
-                        rf"\b{re.escape(cue)}\b\s*[:=\-]?\s*(?:is\s+)?([^\s,;\n\r\t]+(?:\s+[^\s,;\n\r\t]+){{0,2}})",
+                        rf"\b{re.escape(cue)}\b\s*[:=\-]?\s*(?:is\s+)?([^\s,;\n\r\t]+(?:\s+[^\s,;\n\r\t]+){{0,4}})",
                         re.IGNORECASE,
                     )
                 for match in pattern.finditer(text):

@@ -97,6 +97,10 @@ STRUCTURAL_PERSON_EXCLUSIONS: Set[str] = {
     "condition", "email", "qa reviewer", "description", "artificial intelligence",
     "security team", "annual", "rule name", "trigger name", "email id",
     "vendor tier attribute", "vendor tier",
+    # Address terms to prevent misclassifying parts of addresses as PERSON
+    "suite", "ste", "apt", "apartment", "unit", "floor", "fl", "room", "bldg", "building",
+    # System / visual terms
+    "image", "database image", "screenshot", "database snapshot",
 }
 
 TEMPLATE_PERSON_PATTERNS = [

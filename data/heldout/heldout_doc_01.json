@@ -1,0 +1,124 @@
+{
+  "document_id": "heldout_doc_01",
+  "filename": "heldout_doc_01.json",
+  "title": "Global Executive KYC & International Identification Dossier",
+  "description": "High-assurance international identity verification document containing PAN, Aadhaar, Passport, UK NINO, and corporate executive contact vectors.",
+  "pages": 2,
+  "blocks": [
+    {
+      "block_id": "d1_b1",
+      "page": 1,
+      "section_context": "Cross-Border Executive Verification",
+      "text": "Permanent Account Number: ABCPE1234F verified by tax audit authority."
+    },
+    {
+      "block_id": "d1_b2",
+      "page": 1,
+      "section_context": "Cross-Border Executive Verification",
+      "text": "Aadhaar UID: 2345 6789 0124 on file for regulatory compliance."
+    },
+    {
+      "block_id": "d1_b3",
+      "page": 1,
+      "section_context": "Cross-Border Executive Verification",
+      "text": "Passport No: C8839201 issued by passport office."
+    },
+    {
+      "block_id": "d1_b4",
+      "page": 1,
+      "section_context": "Cross-Border Executive Verification",
+      "text": "UK NINO: JH 12 34 56 C recorded for tax compliance."
+    },
+    {
+      "block_id": "d1_b5",
+      "page": 2,
+      "section_context": "Designated Identity Contact",
+      "text": "Corporate Email: marcus.vance@cadence-global.com for executive notifications."
+    },
+    {
+      "block_id": "d1_b6",
+      "page": 2,
+      "section_context": "Designated Identity Contact",
+      "text": "Mobile Phone: +1 (415) 555-2671 on file."
+    },
+    {
+      "block_id": "d1_b7",
+      "page": 2,
+      "section_context": "Designated Identity Contact",
+      "text": "Employee Name: Marcus Vance registered under compliance file."
+    },
+    {
+      "block_id": "d1_b8",
+      "page": 2,
+      "section_context": "Designated Identity Contact",
+      "text": "Date of Birth: 14/07/1988 verified against civil registry."
+    }
+  ],
+  "ground_truth_entities": [
+    {
+      "type": "PAN",
+      "value_snippet": "ABCPE1234F",
+      "page": 1,
+      "text_start": 26,
+      "text_end": 36,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "AADHAAR",
+      "value_snippet": "2345 6789 0124",
+      "page": 1,
+      "text_start": 13,
+      "text_end": 27,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "PASSPORT",
+      "value_snippet": "C8839201",
+      "page": 1,
+      "text_start": 13,
+      "text_end": 21,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "NINO",
+      "value_snippet": "JH 12 34 56 C",
+      "page": 1,
+      "text_start": 9,
+      "text_end": 22,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "marcus.vance@cadence-global.com",
+      "page": 2,
+      "text_start": 17,
+      "text_end": 49,
+      "risk": "HIGH"
+    },
+    {
+      "type": "PHONE",
+      "value_snippet": "+1 (415) 555-2671",
+      "page": 2,
+      "text_start": 14,
+      "text_end": 31,
+      "risk": "HIGH"
+    },
+    {
+      "type": "PERSON",
+      "value_snippet": "Marcus Vance",
+      "page": 2,
+      "text_start": 15,
+      "text_end": 27,
+      "risk": "HIGH"
+    },
+    {
+      "type": "DOB",
+      "value_snippet": "14/07/1988",
+      "page": 2,
+      "text_start": 15,
+      "text_end": 25,
+      "risk": "HIGH"
+    }
+  ],
+  "full_text": "Permanent Account Number: ABCPE1234F verified by tax audit authority.\n\nAadhaar UID: 2345 6789 0124 on file for regulatory compliance.\n\nPassport No: C8839201 issued by passport office.\n\nUK NINO: JH 12 34 56 C recorded for tax compliance.\n\nCorporate Email: marcus.vance@cadence-global.com for executive notifications.\n\nMobile Phone: +1 (415) 555-2671 on file.\n\nEmployee Name: Marcus Vance registered under compliance file.\n\nDate of Birth: 14/07/1988 verified against civil registry."
+}

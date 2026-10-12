@@ -68,3 +68,32 @@ def redact_image_bytes(
     buffer = io.BytesIO()
     sanitized.save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+def burn_redactions_on_image(
+    image: Union[Image.Image, np.ndarray, bytes, bytearray],
+    boxes: Iterable[Sequence[float]],
+    padding: int = 4,
+    color: Tuple[int, int, int] = (0, 0, 0),
+) -> Union[Image.Image, bytes]:
+    """
+    Burn true opaque black pixel boxes onto specified normalized image bounding boxes.
+
+    Accepts PIL Image, NumPy array, or image bytes.
+    If image is bytes or bytearray, returns sanitized PNG bytes.
+    Otherwise, returns sanitized PIL Image.
+    """
+    if isinstance(image, (bytes, bytearray)):
+        return redact_image_bytes(bytes(image), boxes, padding=padding)
+    return redact_image(image, boxes, padding=padding, color=color)
+
+
+# Convenient alias for pixel-level redaction
+redact_image_pixels = burn_redactions_on_image
+
+__all__ = [
+    "redact_image",
+    "redact_image_bytes",
+    "burn_redactions_on_image",
+    "redact_image_pixels",
+]

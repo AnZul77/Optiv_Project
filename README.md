@@ -81,37 +81,65 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 2. Run Automated Unit & Integration Tests
+### 2. Run Automated Test Suite (463 Tests Passing)
 
-Run the full pytest suite (369 unit tests covering ingestion, OCR, detection layers, precision guards, security limits, input safety, and document reconstruction):
+Run the entire automated test suite (463 tests covering unit, integration, multimodal, and adversarial evasion vectors):
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/unit/ -v
+.\.venv\Scripts\python.exe -m pytest tests/ -v
 ```
 
-Run precision and multimodal integration tests (DOCX, PPTX, and scanned PDF):
+Run specific test modules:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/unit/test_precision_fixes.py tests/integration/test_multimodal_artifacts.py -v
+# Adversarial evasion & prompt injection tests (11 attack suites)
+.\.venv\Scripts\python.exe -m pytest tests/adversarial/ -v
+
+# Frozen held-out dataset benchmark
+.\.venv\Scripts\python.exe -m pytest tests/integration/test_heldout_benchmark.py -v
+
+# 20-Question LLM Utility Evaluation (Utility retention & Zero leakage)
+.\.venv\Scripts\python.exe -m pytest tests/integration/test_llm_utility.py -v
 ```
 
-### 3. Run Interactive Smoke Test & Demo
+### 3. Run Streamlit Security Gateway UI
 
-Run the end-to-end interactive demonstration:
+Launch the local interactive security checkpoint dashboard:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/smoke_test.py
+.\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-### 4. Benchmark Ingestion on Cadence Artifacts
+Features included in the dashboard:
+- **Multimodal Document Upload**: Process PDF, DOCX, and PPTX with live OCR visualization and pixel burning.
+- **Fail-Closed Gate Status**: Real-time evaluation cards (`AI READY: PASS` / `AI READY: BLOCK`) with security reason codes.
+- **Interactive Adversarial Simulator**: Live test 6 injection vectors (Direct System Override, Delimiter Hijack, Base64 Smuggling, Invisible Unicode, Fake Approver, Hex Smuggling).
+- **Downstream LLM Response Firewall**: Real-time output scanning intercepting residual PII in LLM answers.
 
-Run the multi-format ingestion test on the actual benchmark files:
+### 4. Run Benchmarks & Synthetic Data Generators
+
+Generate fresh synthetic corpora:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/test_cadence_artifacts.py
+.\.venv\Scripts\python.exe scripts/generate_datasets.py
+```
+
+Run the formal Baseline vs Context-Enhanced Ablation experiment:
+
+```powershell
+.\.venv\Scripts\python.exe -m src.evaluation.ablation
+```
+
+### 5. Reconstruct & Redact Cadence Artifacts
+
+Run full redaction and reconstruction across the 3 provided Cadence artifacts (Scanned PDF, TPRM DOCX with embedded screenshots, and Org Pack PPTX):
+
+```powershell
+.\.venv\Scripts\python.exe scripts/reconstruct_cadence_artifacts.py
 ```
 
 ---
+
 
 ## Repository Structure
 

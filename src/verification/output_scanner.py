@@ -58,3 +58,10 @@ class LLMOutputScanner:
             # Cannot show a partially redacted answer.
             return OutputScanResult(False, "[RESPONSE WITHHELD: PII DETECTED]", report)
         return OutputScanResult(report.passed, redacted.text, report)
+
+
+# Alias for interface compatibility
+OutputScanner = LLMOutputScanner
+
+__all__ = ["LLMOutputScanner", "OutputScanner", "OutputScanResult"]
+

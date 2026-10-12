@@ -74,9 +74,9 @@ TYPE_SPECIFICITY: Dict[EntityType, int] = {
     EntityType.IFSC: 20,
     EntityType.GST: 21,
     EntityType.UPI: 22,
+    EntityType.ADDRESS: 25,
     # Broad / generic
     EntityType.PERSON: 30,
-    EntityType.ADDRESS: 31,
     EntityType.SIGNATURE: 40,
     EntityType.FACE_PHOTO: 41,
     EntityType.SENSITIVE_SCREENSHOT: 42,
@@ -264,8 +264,8 @@ class EntityResolver:
             [e.entity_type for e in group]
         )
 
-        # Find the entity with highest confidence for base values
-        best_entity = max(group, key=lambda e: e.confidence)
+        # Find the entity with highest confidence for base values (break ties with longest value)
+        best_entity = max(group, key=lambda e: (e.confidence, len(e.value)))
 
         # Combine all detection layers
         all_layers: Set[str] = set()

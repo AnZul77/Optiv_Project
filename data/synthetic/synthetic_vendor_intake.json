@@ -1,0 +1,149 @@
+{
+  "document_id": "synthetic_vendor_intake",
+  "filename": "synthetic_vendor_intake.json",
+  "title": "Global Third-Party Vendor Security Intake & KYC Form",
+  "description": "Synthetic enterprise vendor registration document covering international national IDs (PAN, Aadhaar, UK NINO, Passports) and primary contact details.",
+  "pages": 3,
+  "blocks": [
+    {
+      "block_id": "v_b1",
+      "page": 1,
+      "section_context": "Vendor Registration & Profile",
+      "text": "Vendor Registration Dossier for Vance Logistics International Ltd. Reference: TPRM-402 and VEN-9041."
+    },
+    {
+      "block_id": "v_b2",
+      "page": 1,
+      "section_context": "National Tax & Identification Registrations",
+      "text": "Permanent Account Number: ABCPE1234F registered with the Indian Income Tax Department."
+    },
+    {
+      "block_id": "v_b3",
+      "page": 1,
+      "section_context": "National Tax & Identification Registrations",
+      "text": "Aadhaar UID: 2345 6789 0124 on file for Indian authorized signatory."
+    },
+    {
+      "block_id": "v_b4",
+      "page": 1,
+      "section_context": "National Tax & Identification Registrations",
+      "text": "UK NINO: JH 12 34 56 C on record for HMRC tax withholding."
+    },
+    {
+      "block_id": "v_b5",
+      "page": 1,
+      "section_context": "National Tax & Identification Registrations",
+      "text": "Passport No: C8839201 verified for international clearance."
+    },
+    {
+      "block_id": "v_b6",
+      "page": 2,
+      "section_context": "Designated Officers & Authorized Contacts",
+      "text": "Employee Name: Marcus Vance serves as Principal Logistics Director."
+    },
+    {
+      "block_id": "v_b7",
+      "page": 2,
+      "section_context": "Designated Officers & Authorized Contacts",
+      "text": "Corporate Email: marcus.vance@vance-logistics.co.uk and Mobile Phone: +44 20 7946 0912."
+    },
+    {
+      "block_id": "v_b8",
+      "page": 2,
+      "section_context": "Designated Officers & Authorized Contacts",
+      "text": "Employee Name: Sarah Jenkins serves as Secondary Regional Compliance Officer."
+    },
+    {
+      "block_id": "v_b9",
+      "page": 2,
+      "section_context": "Designated Officers & Authorized Contacts",
+      "text": "Corporate Email: sarah.jenkins@optiv.com with Mobile Phone: +91 98765 43210."
+    },
+    {
+      "block_id": "v_b10",
+      "page": 3,
+      "section_context": "Banking & Remittance Information",
+      "text": "Settlement Bank Account Number: 98765432101234 with Bank IFSC: SBIN0001234."
+    }
+  ],
+  "full_text": "Vendor Registration Dossier for Vance Logistics International Ltd. Reference: TPRM-402 and VEN-9041.\n\nPermanent Account Number: ABCPE1234F registered with the Indian Income Tax Department.\n\nAadhaar UID: 2345 6789 0124 on file for Indian authorized signatory.\n\nUK NINO: JH 12 34 56 C on record for HMRC tax withholding.\n\nPassport No: C8839201 verified for international clearance.\n\nEmployee Name: Marcus Vance serves as Principal Logistics Director.\n\nCorporate Email: marcus.vance@vance-logistics.co.uk and Mobile Phone: +44 20 7946 0912.\n\nEmployee Name: Sarah Jenkins serves as Secondary Regional Compliance Officer.\n\nCorporate Email: sarah.jenkins@optiv.com with Mobile Phone: +91 98765 43210.\n\nSettlement Bank Account Number: 98765432101234 with Bank IFSC: SBIN0001234.",
+  "ground_truth_entities": [
+    {
+      "type": "PAN",
+      "value_snippet": "ABCPE1234F",
+      "page": 1,
+      "text_start": 26,
+      "text_end": 36
+    },
+    {
+      "type": "AADHAAR",
+      "value_snippet": "2345 6789 0124",
+      "page": 1,
+      "text_start": 13,
+      "text_end": 27
+    },
+    {
+      "type": "NINO",
+      "value_snippet": "JH 12 34 56 C",
+      "page": 1,
+      "text_start": 9,
+      "text_end": 22
+    },
+    {
+      "type": "PASSPORT",
+      "value_snippet": "C8839201",
+      "page": 1,
+      "text_start": 13,
+      "text_end": 21
+    },
+    {
+      "type": "PERSON",
+      "value_snippet": "Marcus Vance",
+      "page": 2,
+      "text_start": 15,
+      "text_end": 27
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "marcus.vance@vance-logistics.co.uk",
+      "page": 2,
+      "text_start": 17,
+      "text_end": 52
+    },
+    {
+      "type": "PHONE",
+      "value_snippet": "+44 20 7946 0912",
+      "page": 2,
+      "text_start": 71,
+      "text_end": 87
+    },
+    {
+      "type": "PERSON",
+      "value_snippet": "Sarah Jenkins",
+      "page": 2,
+      "text_start": 15,
+      "text_end": 28
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "sarah.jenkins@optiv.com",
+      "page": 2,
+      "text_start": 17,
+      "text_end": 40
+    },
+    {
+      "type": "PHONE",
+      "value_snippet": "+91 98765 43210",
+      "page": 2,
+      "text_start": 60,
+      "text_end": 75
+    },
+    {
+      "type": "IFSC",
+      "value_snippet": "SBIN0001234",
+      "page": 3,
+      "text_start": 64,
+      "text_end": 75
+    }
+  ]
+}

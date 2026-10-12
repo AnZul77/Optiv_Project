@@ -11,6 +11,8 @@ from src.ocr.regions import (
     make_bounding_box,
     normalized_to_pixel,
     pixel_to_normalized,
+    find_pii_spans_in_text,
+    extract_word_level_pii_boxes,
 )
 
 __all__ = [
@@ -22,4 +24,6 @@ __all__ = [
     "make_bounding_box",
     "normalized_to_pixel",
     "pixel_to_normalized",
+    "find_pii_spans_in_text",
+    "extract_word_level_pii_boxes",
 ]

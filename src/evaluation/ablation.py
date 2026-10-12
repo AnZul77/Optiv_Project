@@ -67,6 +67,8 @@ def run_ablation_experiment(gt_dir: str, output_report_path: str):
     predicted_enhanced: List[List[EntityAnnotation]] = []
     ground_truth_docs: List[List[EntityAnnotation]] = []
 
+    from datetime import datetime
+
     for doc_meta in gt_records:
         doc_id = doc_meta.get("document_id", "doc")
         gt_ents_raw = doc_meta.get("ground_truth_entities", [])
@@ -77,29 +79,32 @@ def run_ablation_experiment(gt_dir: str, output_report_path: str):
 
         for idx, ent in enumerate(gt_ents_raw):
             val = ent.get("value_snippet", "")
-            gt_annotations.append(EntityAnnotation.create(
-                entity_type=ent["type"],
-                raw_value=val,
-                source="human_annotation",
-                page=ent["page"],
-                bbox=ent.get("bbox", [0.0, 0.0, 0.0, 0.0]),
-                text_start=ent.get("text_start", 0),
-                text_end=ent.get("text_end", 0),
-                confidence=1.0
-            ))
+            etype = ent["type"]
 
-            # Create contextual content block
+            # Create contextual content block matching realistic enterprise records
             context_prefix = ""
-            if ent["type"] == "SSN":
+            if etype == "SSN":
                 context_prefix = "Tax ID / SSN: "
-            elif ent["type"] == "DOB":
+            elif etype == "DOB":
                 context_prefix = "Date of Birth: "
-            elif ent["type"] == "PAN":
+            elif etype == "PAN":
                 context_prefix = "Permanent Account Number: "
-            elif ent["type"] == "PASSPORT":
+            elif etype == "PASSPORT":
                 context_prefix = "Passport No: "
-            elif ent["type"] == "ADDRESS":
+            elif etype == "ADDRESS":
                 context_prefix = "Residential Address: "
+            elif etype == "EMPLOYEE_ID":
+                context_prefix = "Employee ID: "
+            elif etype == "DIRECTOR_ID":
+                context_prefix = "Director ID: "
+            elif etype == "PERSON":
+                context_prefix = "Employee Name: "
+            elif etype == "EMAIL":
+                context_prefix = "Corporate Email: "
+            elif etype == "PHONE":
+                context_prefix = "Mobile Phone: "
+            elif etype == "SENSITIVE_SCREENSHOT":
+                context_prefix = "Evidence Screenshot: "
 
             block_text = f"{context_prefix}{val}"
             blocks.append(ContentBlock(
@@ -107,6 +112,18 @@ def run_ablation_experiment(gt_dir: str, output_report_path: str):
                 block_id=f"{doc_id}_b{idx}",
                 page=ent["page"],
                 section_context="Confidential Personnel Record",
+            ))
+
+            gt_annotations.append(EntityAnnotation.create(
+                entity_type=etype,
+                raw_value=val,
+                source="human_annotation",
+                page=ent["page"],
+                bbox=ent.get("bbox", [0.0, 0.0, 0.0, 0.0]),
+                text_start=len(context_prefix),
+                text_end=len(context_prefix) + len(val),
+                confidence=1.0,
+                context={"raw_value": val}
             ))
 
         # Run Baseline Pipeline
@@ -117,7 +134,11 @@ def run_ablation_experiment(gt_dir: str, output_report_path: str):
                 raw_value=e.value,
                 source=e.source.value if hasattr(e.source, "value") else str(e.source),
                 page=e.page,
+                bbox=list(e.bbox) if e.bbox else [0.0, 0.0, 0.0, 0.0],
+                text_start=e.text_start,
+                text_end=e.text_end,
                 confidence=e.confidence,
+                context={"raw_value": e.value}
             ) for e in res_base.entities
         ]
 
@@ -129,7 +150,11 @@ def run_ablation_experiment(gt_dir: str, output_report_path: str):
                 raw_value=e.value,
                 source=e.source.value if hasattr(e.source, "value") else str(e.source),
                 page=e.page,
+                bbox=list(e.bbox) if e.bbox else [0.0, 0.0, 0.0, 0.0],
+                text_start=e.text_start,
+                text_end=e.text_end,
                 confidence=e.confidence,
+                context={"raw_value": e.value}
             ) for e in res_enh.entities
         ]
 
@@ -143,9 +168,11 @@ def run_ablation_experiment(gt_dir: str, output_report_path: str):
     logging.info("Calculating Empirical Context-Enhanced Metrics...")
     enhanced_metrics = generate_report(predicted_enhanced, ground_truth_docs)
 
+    timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     # Format Markdown Report
     report_content = f"""# Empirical Ablation Study Results
-**Generated on**: {os.popen('echo %date% %time%').read().strip() or 'Live Session'}
+**Generated on**: {timestamp_str}
 
 ## Experiment Configurations
 - **Configuration A (Baseline)**: Regex Patterns only (No NER, No Context Engine, No Validators, No Allow-List).
