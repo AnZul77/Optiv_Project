@@ -1143,6 +1143,10 @@ elif page == "Benchmark Metrics":
 """)
 
     with tab_utility:
+        # Invalidate any stale cached utility report from prior session state
+        if "utility_report" in st.session_state:
+            del st.session_state["utility_report"]
+
         st.markdown("### Enterprise LLM Utility & Information Retention Benchmark")
         st.caption(
             "Measures downstream LLM consistency and PII leakage across 20 standardized questions (10 Operational, 10 PII-targeted) "
@@ -1154,13 +1158,13 @@ elif page == "Benchmark Metrics":
             if st.button("▶️ Execute 20-Question Utility Evaluation", type="primary"):
                 with st.spinner("Evaluating downstream utility retention and PII leakage across Cadence documents..."):
                     utility_report = run_llm_utility_benchmark()
-                    st.session_state["utility_report"] = utility_report
+                    st.session_state["enterprise_utility_report"] = utility_report
                     st.success("Utility benchmark complete!")
 
-        if "utility_report" not in st.session_state:
-            st.session_state["utility_report"] = run_llm_utility_benchmark()
+        if "enterprise_utility_report" not in st.session_state:
+            st.session_state["enterprise_utility_report"] = run_llm_utility_benchmark()
 
-        rep = st.session_state["utility_report"]
+        rep = st.session_state["enterprise_utility_report"]
         m_u1, m_u2, m_u3, m_u4 = st.columns(4)
         m_u1.metric(
             "Information Utility Retention",
@@ -1177,4 +1181,6 @@ elif page == "Benchmark Metrics":
         m_u3.metric("Operational Accuracy", f"{rep.sanitized_operational_accuracy:.1%}")
         m_u4.metric("Benchmark Status", "PASS 🛡️" if rep.passed else "FAIL 🚫")
 
-        st.markdown(rep.to_markdown())
+        md_output = rep.to_markdown()
+        md_output = md_output.replace("Day 18 LLM Utility Evaluation Report", "Enterprise LLM Utility & Security Evaluation Report").replace("Day 18", "Enterprise")
+        st.markdown(md_output)
