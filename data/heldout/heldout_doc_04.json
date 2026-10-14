@@ -1,0 +1,122 @@
+{
+  "document_id": "heldout_doc_04",
+  "filename": "heldout_doc_04.json",
+  "title": "SOC Forensic Incident Investigation & Threat Audit Dossier",
+  "description": "SOC security incident ticket combining allow-listed reference codes (INC-2026-0417, RSK-001, CTL-IAM-004, ISO-27001) alongside authentic personal PII.",
+  "pages": 2,
+  "blocks": [
+    {
+      "block_id": "d4_b1",
+      "page": 1,
+      "section_context": "Allow-Listed Security Incident Codes",
+      "text": "Incident ticket INC-2026-0417 closed under risk RSK-001 and CTL-IAM-004 per ISO-27001."
+    },
+    {
+      "block_id": "d4_b2",
+      "page": 1,
+      "section_context": "Affected Individual Identification",
+      "text": "Tax ID / SSN: 123-45-6789 identified in compromised log."
+    },
+    {
+      "block_id": "d4_b3",
+      "page": 1,
+      "section_context": "Affected Individual Identification",
+      "text": "Passport No: Z1234567 verified on identity server."
+    },
+    {
+      "block_id": "d4_b4",
+      "page": 2,
+      "section_context": "Incident Investigator & Response Officer",
+      "text": "Employee Name: Alice Walker appointed Lead Forensics Handler."
+    },
+    {
+      "block_id": "d4_b5",
+      "page": 2,
+      "section_context": "Incident Investigator & Response Officer",
+      "text": "Corporate Email: alice.walker@optiv-security.com."
+    },
+    {
+      "block_id": "d4_b6",
+      "page": 2,
+      "section_context": "Incident Investigator & Response Officer",
+      "text": "Mobile Phone: +1 (202) 555-0143."
+    },
+    {
+      "block_id": "d4_b7",
+      "page": 2,
+      "section_context": "Incident Investigator & Response Officer",
+      "text": "Employee ID: EMP-8239."
+    },
+    {
+      "block_id": "d4_b8",
+      "page": 2,
+      "section_context": "Incident Investigator & Response Officer",
+      "text": "Date of Birth: 1985-11-23."
+    }
+  ],
+  "ground_truth_entities": [
+    {
+      "type": "SSN",
+      "value_snippet": "123-45-6789",
+      "page": 1,
+      "text_start": 14,
+      "text_end": 25,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "PASSPORT",
+      "value_snippet": "Z1234567",
+      "page": 1,
+      "text_start": 13,
+      "text_end": 21,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "PERSON",
+      "value_snippet": "Alice Walker",
+      "page": 2,
+      "text_start": 15,
+      "text_end": 27,
+      "risk": "HIGH"
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "alice.walker@optiv-security.com",
+      "page": 2,
+      "text_start": 17,
+      "text_end": 48,
+      "risk": "HIGH"
+    },
+    {
+      "type": "PHONE",
+      "value_snippet": "+1 (202) 555-0143",
+      "page": 2,
+      "text_start": 14,
+      "text_end": 31,
+      "risk": "HIGH"
+    },
+    {
+      "type": "EMPLOYEE_ID",
+      "value_snippet": "EMP-8239",
+      "page": 2,
+      "text_start": 13,
+      "text_end": 21,
+      "risk": "HIGH"
+    },
+    {
+      "type": "DOB",
+      "value_snippet": "1985-11-23",
+      "page": 2,
+      "text_start": 15,
+      "text_end": 25,
+      "risk": "HIGH"
+    }
+  ],
+  "allow_listed_tokens": [
+    "INC-2026-0417",
+    "RSK-001",
+    "CTL-IAM-004",
+    "ISO-27001"
+  ],
+  "full_text": "Incident ticket INC-2026-0417 closed under risk RSK-001 and CTL-IAM-004 per ISO-27001.\n\nTax ID / SSN: 123-45-6789 identified in compromised log.\n\nPassport No: Z1234567 verified on identity server.\n\nEmployee Name: Alice Walker appointed Lead Forensics Handler.\n\nCorporate Email: alice.walker@optiv-security.com.\n\nMobile Phone: +1 (202) 555-0143.\n\nEmployee ID: EMP-8239.\n\nDate of Birth: 1985-11-23."
+}

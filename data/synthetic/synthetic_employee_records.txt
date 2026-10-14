@@ -1,0 +1,21 @@
+=== Confidential Enterprise Personnel Directory & HR Records ===
+
+Employee Name: Elena Rostova holding position of Lead Security Architect. Employee ID: EMP-8239.
+
+US Tax SSN: 219-45-7890 on file. Date of Birth: 14/07/1988.
+
+Corporate Email: elena.rostova@optiv-security.com and Personal Email: elena.rostova@personal-mail.com.
+
+Mobile Phone: +1 (415) 555-2671. Residential Address: 1842 Willow Tree Ln, Suite 400, Chicago, IL 60601.
+
+Employee Name: David K. Miller holding Employee ID: EMP-908234.
+
+US Tax SSN: 123-45-6789. Date of Birth: 1985-11-23.
+
+Personal Email: david.miller@gmail.com with Mobile Phone: +1 (312) 555-0199.
+
+Residential Address: 742 Evergreen Terrace, Springfield, OR 97477.
+
+Employee Name: Ananya Sharma assigned Employee ID: EMP-10492. Date of Birth: 03/22/1991.
+
+Corporate Email: ananya.sharma@cadence-group.com and Mobile Phone: +91 98123 45678.

@@ -1,0 +1,142 @@
+{
+  "document_id": "synthetic_invoices",
+  "filename": "synthetic_invoices.json",
+  "title": "Commercial Accounts Payable Schedule & Treasury Settlement Docket",
+  "description": "Financial enterprise document featuring corporate credit cards, bank accounts, GSTIN codes, IFSC remittance routes, and UPI handles.",
+  "pages": 2,
+  "blocks": [
+    {
+      "block_id": "inv_b1",
+      "page": 1,
+      "section_context": "Billing Header & Reference",
+      "text": "Commercial Billing Statement and Settlement Docket. Authorization Reference: REQ-9018 and POL-301."
+    },
+    {
+      "block_id": "inv_b2",
+      "page": 1,
+      "section_context": "Corporate Credit Card Instruments",
+      "text": "Corporate Credit Card: 4532015000000007 billed for enterprise cloud hosting."
+    },
+    {
+      "block_id": "inv_b3",
+      "page": 1,
+      "section_context": "Corporate Credit Card Instruments",
+      "text": "Corporate Credit Card: 5105105105105100 billed for security subscription services."
+    },
+    {
+      "block_id": "inv_b4",
+      "page": 1,
+      "section_context": "GST & Commercial Tax Identification",
+      "text": "State of Maharashtra GST Number: 27ABCDE1234F1Z5 registered for Interstate Commerce."
+    },
+    {
+      "block_id": "inv_b5",
+      "page": 1,
+      "section_context": "GST & Commercial Tax Identification",
+      "text": "Permanent Account Number: XYZPA9876K linked to corporate tax ledger."
+    },
+    {
+      "block_id": "inv_b6",
+      "page": 2,
+      "section_context": "Remittance Rails & Instant Settlements",
+      "text": "Primary Settlement Bank IFSC: SBIN0001234 routing."
+    },
+    {
+      "block_id": "inv_b7",
+      "page": 2,
+      "section_context": "Remittance Rails & Instant Settlements",
+      "text": "Instant Merchant UPI ID: billing@okhdfcbank configured for auto-debit."
+    },
+    {
+      "block_id": "inv_b8",
+      "page": 2,
+      "section_context": "Remittance Rails & Instant Settlements",
+      "text": "Secondary Merchant UPI ID: settlement.vendor@okaxis active."
+    },
+    {
+      "block_id": "inv_b9",
+      "page": 2,
+      "section_context": "Finance Sign-off & Contact",
+      "text": "Employee Name: Rajesh Patel acts as Treasury Controller."
+    },
+    {
+      "block_id": "inv_b10",
+      "page": 2,
+      "section_context": "Finance Sign-off & Contact",
+      "text": "Corporate Email: accounts.payable@meridian-corp.com with Mobile Phone: +91 98765 43210."
+    }
+  ],
+  "full_text": "Commercial Billing Statement and Settlement Docket. Authorization Reference: REQ-9018 and POL-301.\n\nCorporate Credit Card: 4532015000000007 billed for enterprise cloud hosting.\n\nCorporate Credit Card: 5105105105105100 billed for security subscription services.\n\nState of Maharashtra GST Number: 27ABCDE1234F1Z5 registered for Interstate Commerce.\n\nPermanent Account Number: XYZPA9876K linked to corporate tax ledger.\n\nPrimary Settlement Bank IFSC: SBIN0001234 routing.\n\nInstant Merchant UPI ID: billing@okhdfcbank configured for auto-debit.\n\nSecondary Merchant UPI ID: settlement.vendor@okaxis active.\n\nEmployee Name: Rajesh Patel acts as Treasury Controller.\n\nCorporate Email: accounts.payable@meridian-corp.com with Mobile Phone: +91 98765 43210.",
+  "ground_truth_entities": [
+    {
+      "type": "CARD",
+      "value_snippet": "4532015000000007",
+      "page": 1,
+      "text_start": 23,
+      "text_end": 39
+    },
+    {
+      "type": "CARD",
+      "value_snippet": "5105105105105100",
+      "page": 1,
+      "text_start": 23,
+      "text_end": 39
+    },
+    {
+      "type": "GST",
+      "value_snippet": "27ABCDE1234F1Z5",
+      "page": 1,
+      "text_start": 34,
+      "text_end": 49
+    },
+    {
+      "type": "PAN",
+      "value_snippet": "XYZPA9876K",
+      "page": 1,
+      "text_start": 26,
+      "text_end": 36
+    },
+    {
+      "type": "IFSC",
+      "value_snippet": "SBIN0001234",
+      "page": 2,
+      "text_start": 30,
+      "text_end": 41
+    },
+    {
+      "type": "UPI",
+      "value_snippet": "billing@okhdfcbank",
+      "page": 2,
+      "text_start": 24,
+      "text_end": 42
+    },
+    {
+      "type": "UPI",
+      "value_snippet": "settlement.vendor@okaxis",
+      "page": 2,
+      "text_start": 26,
+      "text_end": 50
+    },
+    {
+      "type": "PERSON",
+      "value_snippet": "Rajesh Patel",
+      "page": 2,
+      "text_start": 15,
+      "text_end": 27
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "accounts.payable@meridian-corp.com",
+      "page": 2,
+      "text_start": 17,
+      "text_end": 51
+    },
+    {
+      "type": "PHONE",
+      "value_snippet": "+91 98765 43210",
+      "page": 2,
+      "text_start": 71,
+      "text_end": 86
+    }
+  ]
+}

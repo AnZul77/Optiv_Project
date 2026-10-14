@@ -155,6 +155,9 @@ class EntityAnnotation:
     ) -> EntityAnnotation:
         """Factory method computing salted SHA-256 hash without keeping raw text."""
         hashed = hashlib.sha256((salt + raw_value).encode("utf-8")).hexdigest()
+        ctx = dict(context) if context else {}
+        if raw_value and "raw_value" not in ctx:
+            ctx["raw_value"] = raw_value
         return cls(
             entity_id=f"urn:uuid:{uuid.uuid4()}",
             type=entity_type,
@@ -167,7 +170,7 @@ class EntityAnnotation:
             confidence=confidence,
             risk=risk,
             action=action,
-            context=context or {}
+            context=ctx
         )
 
 

@@ -1,0 +1,21 @@
+=== Global Third-Party Vendor Security Intake & KYC Form ===
+
+Vendor Registration Dossier for Vance Logistics International Ltd. Reference: TPRM-402 and VEN-9041.
+
+Permanent Account Number: ABCPE1234F registered with the Indian Income Tax Department.
+
+Aadhaar UID: 2345 6789 0124 on file for Indian authorized signatory.
+
+UK NINO: JH 12 34 56 C on record for HMRC tax withholding.
+
+Passport No: C8839201 verified for international clearance.
+
+Employee Name: Marcus Vance serves as Principal Logistics Director.
+
+Corporate Email: marcus.vance@vance-logistics.co.uk and Mobile Phone: +44 20 7946 0912.
+
+Employee Name: Sarah Jenkins serves as Secondary Regional Compliance Officer.
+
+Corporate Email: sarah.jenkins@optiv.com with Mobile Phone: +91 98765 43210.
+
+Settlement Bank Account Number: 98765432101234 with Bank IFSC: SBIN0001234.

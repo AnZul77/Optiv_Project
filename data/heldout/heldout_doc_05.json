@@ -1,0 +1,152 @@
+{
+  "document_id": "heldout_doc_05",
+  "filename": "heldout_doc_05.json",
+  "title": "Private Wealth Governance & Executive Board Dossier",
+  "description": "Executive board dossier featuring US SSN, Indian Aadhaar, international Passport, UK NINO, Ministry Director Identification Number (DIR), DOB, and residential address.",
+  "pages": 2,
+  "blocks": [
+    {
+      "block_id": "d5_b1",
+      "page": 1,
+      "section_context": "Executive Onboarding Dossier",
+      "text": "Tax ID / SSN: 293-11-4829 on official record."
+    },
+    {
+      "block_id": "d5_b2",
+      "page": 1,
+      "section_context": "Executive Onboarding Dossier",
+      "text": "Aadhaar UID: 9876 5432 1096 verified for wealth account."
+    },
+    {
+      "block_id": "d5_b3",
+      "page": 1,
+      "section_context": "Executive Onboarding Dossier",
+      "text": "Passport No: A9182345 verified."
+    },
+    {
+      "block_id": "d5_b4",
+      "page": 1,
+      "section_context": "Executive Onboarding Dossier",
+      "text": "UK NINO: AB 12 34 56 C on record."
+    },
+    {
+      "block_id": "d5_b5",
+      "page": 1,
+      "section_context": "Executive Onboarding Dossier",
+      "text": "Director ID: DIR-00041 active in corporate registry."
+    },
+    {
+      "block_id": "d5_b6",
+      "page": 2,
+      "section_context": "Personal Governance Profile",
+      "text": "Date of Birth: 08/19/1974."
+    },
+    {
+      "block_id": "d5_b7",
+      "page": 2,
+      "section_context": "Personal Governance Profile",
+      "text": "Corporate Email: michael.henderson@wealth-partners.com."
+    },
+    {
+      "block_id": "d5_b8",
+      "page": 2,
+      "section_context": "Personal Governance Profile",
+      "text": "Employee Name: Michael Henderson."
+    },
+    {
+      "block_id": "d5_b9",
+      "page": 2,
+      "section_context": "Personal Governance Profile",
+      "text": "Bank IFSC: HDFC0000123."
+    },
+    {
+      "block_id": "d5_b10",
+      "page": 2,
+      "section_context": "Personal Governance Profile",
+      "text": "Residential Address: 742 Evergreen Terrace, Springfield, OR 97477."
+    }
+  ],
+  "ground_truth_entities": [
+    {
+      "type": "SSN",
+      "value_snippet": "293-11-4829",
+      "page": 1,
+      "text_start": 14,
+      "text_end": 25,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "AADHAAR",
+      "value_snippet": "9876 5432 1096",
+      "page": 1,
+      "text_start": 13,
+      "text_end": 27,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "PASSPORT",
+      "value_snippet": "A9182345",
+      "page": 1,
+      "text_start": 13,
+      "text_end": 21,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "NINO",
+      "value_snippet": "AB 12 34 56 C",
+      "page": 1,
+      "text_start": 9,
+      "text_end": 22,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "DIRECTOR_ID",
+      "value_snippet": "DIR-00041",
+      "page": 1,
+      "text_start": 13,
+      "text_end": 22,
+      "risk": "HIGH"
+    },
+    {
+      "type": "DOB",
+      "value_snippet": "08/19/1974",
+      "page": 2,
+      "text_start": 15,
+      "text_end": 25,
+      "risk": "HIGH"
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "michael.henderson@wealth-partners.com",
+      "page": 2,
+      "text_start": 17,
+      "text_end": 53,
+      "risk": "HIGH"
+    },
+    {
+      "type": "PERSON",
+      "value_snippet": "Michael Henderson",
+      "page": 2,
+      "text_start": 15,
+      "text_end": 32,
+      "risk": "HIGH"
+    },
+    {
+      "type": "IFSC",
+      "value_snippet": "HDFC0000123",
+      "page": 2,
+      "text_start": 11,
+      "text_end": 22,
+      "risk": "MEDIUM"
+    },
+    {
+      "type": "ADDRESS",
+      "value_snippet": "742 Evergreen Terrace, Springfield, OR 97477",
+      "page": 2,
+      "text_start": 21,
+      "text_end": 65,
+      "risk": "HIGH"
+    }
+  ],
+  "full_text": "Tax ID / SSN: 293-11-4829 on official record.\n\nAadhaar UID: 9876 5432 1096 verified for wealth account.\n\nPassport No: A9182345 verified.\n\nUK NINO: AB 12 34 56 C on record.\n\nDirector ID: DIR-00041 active in corporate registry.\n\nDate of Birth: 08/19/1974.\n\nCorporate Email: michael.henderson@wealth-partners.com.\n\nEmployee Name: Michael Henderson.\n\nBank IFSC: HDFC0000123.\n\nResidential Address: 742 Evergreen Terrace, Springfield, OR 97477."
+}

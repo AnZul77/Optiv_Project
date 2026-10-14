@@ -1,0 +1,124 @@
+{
+  "document_id": "heldout_doc_03",
+  "filename": "heldout_doc_03.json",
+  "title": "Enterprise Accounts Payable & Commercial Settlement Schedule",
+  "description": "Treasury reconciliation report with Mastercard corporate cards, Indian GSTIN registration, IFSC branch code, UPI VPA, and PAN identifier.",
+  "pages": 1,
+  "blocks": [
+    {
+      "block_id": "d3_b1",
+      "page": 1,
+      "section_context": "Commercial Treasury Settlement",
+      "text": "Corporate Credit Card: 5105105105105100 billed for settlement."
+    },
+    {
+      "block_id": "d3_b2",
+      "page": 1,
+      "section_context": "Commercial Treasury Settlement",
+      "text": "Permanent Account Number: XYZPA9876K on file."
+    },
+    {
+      "block_id": "d3_b3",
+      "page": 1,
+      "section_context": "Commercial Treasury Settlement",
+      "text": "GST Number: 27ABCDE1234F1Z5 registered with revenue service."
+    },
+    {
+      "block_id": "d3_b4",
+      "page": 1,
+      "section_context": "Commercial Treasury Settlement",
+      "text": "Bank IFSC: SBIN0001234 routing."
+    },
+    {
+      "block_id": "d3_b5",
+      "page": 1,
+      "section_context": "Commercial Treasury Settlement",
+      "text": "UPI ID: billing@okhdfcbank configured."
+    },
+    {
+      "block_id": "d3_b6",
+      "page": 1,
+      "section_context": "Commercial Treasury Settlement",
+      "text": "Corporate Email: treasury.controller@cadence-finance.com."
+    },
+    {
+      "block_id": "d3_b7",
+      "page": 1,
+      "section_context": "Commercial Treasury Settlement",
+      "text": "Mobile Phone: +91 98765 43210."
+    },
+    {
+      "block_id": "d3_b8",
+      "page": 1,
+      "section_context": "Commercial Treasury Settlement",
+      "text": "Employee Name: Rajesh Patel."
+    }
+  ],
+  "ground_truth_entities": [
+    {
+      "type": "CARD",
+      "value_snippet": "5105105105105100",
+      "page": 1,
+      "text_start": 23,
+      "text_end": 39,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "PAN",
+      "value_snippet": "XYZPA9876K",
+      "page": 1,
+      "text_start": 26,
+      "text_end": 36,
+      "risk": "CRITICAL"
+    },
+    {
+      "type": "GST",
+      "value_snippet": "27ABCDE1234F1Z5",
+      "page": 1,
+      "text_start": 12,
+      "text_end": 27,
+      "risk": "HIGH"
+    },
+    {
+      "type": "IFSC",
+      "value_snippet": "SBIN0001234",
+      "page": 1,
+      "text_start": 11,
+      "text_end": 22,
+      "risk": "MEDIUM"
+    },
+    {
+      "type": "UPI",
+      "value_snippet": "billing@okhdfcbank",
+      "page": 1,
+      "text_start": 8,
+      "text_end": 26,
+      "risk": "MEDIUM"
+    },
+    {
+      "type": "EMAIL",
+      "value_snippet": "treasury.controller@cadence-finance.com",
+      "page": 1,
+      "text_start": 17,
+      "text_end": 56,
+      "risk": "HIGH"
+    },
+    {
+      "type": "PHONE",
+      "value_snippet": "+91 98765 43210",
+      "page": 1,
+      "text_start": 14,
+      "text_end": 29,
+      "risk": "HIGH"
+    },
+    {
+      "type": "PERSON",
+      "value_snippet": "Rajesh Patel",
+      "page": 1,
+      "text_start": 15,
+      "text_end": 27,
+      "risk": "HIGH"
+    }
+  ],
+  "full_text": "Corporate Credit Card: 5105105105105100 billed for settlement.\n\nPermanent Account Number: XYZPA9876K on file.\n\nGST Number: 27ABCDE1234F1Z5 registered with revenue service.\n\nBank IFSC: SBIN0001234 routing.\n\nUPI ID: billing@okhdfcbank configured.\n\nCorporate Email: treasury.controller@cadence-finance.com.\n\nMobile Phone: +91 98765 43210.\n\nEmployee Name: Rajesh Patel."
+}

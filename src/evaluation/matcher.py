@@ -69,38 +69,36 @@ def match_entities(predicted: List[EntityAnnotation], ground_truth: List[EntityA
             if pred.page != gt.page or pred.type != gt.type:
                 continue
                 
+            matched_this = False
+
             # Check Text Overlap if text offsets exist
             if pred.text_end > 0 and gt.text_end > 0:
                 text_iou = calculate_iou_text((pred.text_start, pred.text_end), (gt.text_start, gt.text_end))
                 if text_iou >= iou_threshold:
-                    tp.append(pred)
-                    gt_matched.add(i)
-                    matched = True
-                    break
-                    
-            # Fallback to Bounding Box Overlap if no text offsets but bboxes exist
-            elif sum(pred.bbox) > 0 and sum(gt.bbox) > 0:
+                    matched_this = True
+
+            # Fallback to Bounding Box Overlap if no text match and bboxes exist
+            if not matched_this and sum(pred.bbox) > 0 and sum(gt.bbox) > 0:
                 bbox_iou = calculate_iou_bbox(pred.bbox, gt.bbox)
                 if bbox_iou >= iou_threshold:
-                    tp.append(pred)
-                    gt_matched.add(i)
-                    matched = True
-                    break
+                    matched_this = True
 
-            # Fallback to Value Hash or Text Match when spatial coordinates are unavailable
-            elif pred.value_hash and gt.value_hash and pred.value_hash == gt.value_hash:
+            # Fallback to Value Hash Match
+            if not matched_this and pred.value_hash and gt.value_hash and pred.value_hash == gt.value_hash:
+                matched_this = True
+
+            # Fallback to Raw Value Text Match
+            if not matched_this and hasattr(pred, "context") and hasattr(gt, "context"):
+                pred_raw = str(pred.context.get("raw_value", "")).strip()
+                gt_raw = str(gt.context.get("raw_value", "")).strip()
+                if pred_raw and gt_raw and (pred_raw.lower() in gt_raw.lower() or gt_raw.lower() in pred_raw.lower()):
+                    matched_this = True
+
+            if matched_this:
                 tp.append(pred)
                 gt_matched.add(i)
                 matched = True
                 break
-            elif hasattr(pred, "context") and hasattr(gt, "context"):
-                pred_raw = pred.context.get("raw_value", "")
-                gt_raw = gt.context.get("raw_value", "")
-                if pred_raw and gt_raw and (pred_raw.lower() in gt_raw.lower() or gt_raw.lower() in pred_raw.lower()):
-                    tp.append(pred)
-                    gt_matched.add(i)
-                    matched = True
-                    break
 
         
         if not matched:
