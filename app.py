@@ -241,7 +241,7 @@ def render_downstream_llm_response_firewall(key_suffix: str = "main"):
                                 "End": f.end,
                                 "Intercept Action": "REDACTED & FLAGGED",
                             })
-                        st.dataframe(pd.DataFrame(finding_rows), use_container_width=True, hide_index=True)
+                        st.dataframe(pd.DataFrame(finding_rows), hide_index=True)
 
 
 # --- SIDEBAR NAVIGATION ---
@@ -347,8 +347,7 @@ if page == "Live Security Gateway":
                     if not has_native:
                         is_scanned_pdf = True
                         from src.ocr.regions import find_pii_spans_in_text, extract_word_level_pii_boxes
-                        from src.schema.document import ExtractedBlock
-                        from src.schema.entities import EntityAnnotation
+                        from src.schema.document import ExtractedBlock, EntityAnnotation
                         import json
 
                         cache_path = "data/outputs/ocr_cache_policy_v6.json"
@@ -495,12 +494,12 @@ if page == "Live Security Gateway":
                         st.session_state["audit_log"].append({
                             "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                             "FILE": uploaded_file.name,
-                            "PAGE": ent.page,
-                            "TYPE": ent.type,
-                            "RISK": ent.risk,
-                            "SOURCE": ent.source,
+                            "PAGE": str(ent.page),
+                            "TYPE": str(ent.type),
+                            "RISK": str(ent.risk),
+                            "SOURCE": str(ent.source),
                             "CONFIDENCE": f"{ent.confidence:.2f}",
-                            "VALUE_HASH": ent.value_hash[:16] + "...",
+                            "VALUE_HASH": str(ent.value_hash[:16]) + "...",
                             "ACTION": "REDACTED",
                         })
 
@@ -725,7 +724,7 @@ if page == "Live Security Gateway":
                             "Policy Ceiling": gate.settings.get("max_allowed_residual_risk", "NONE"),
                             "Enforcement Mode": "FAIL-CLOSED / BLOCKED",
                         })
-                    st.dataframe(pd.DataFrame(reason_rows), use_container_width=True, hide_index=True)
+                    st.dataframe(pd.DataFrame(reason_rows), hide_index=True)
 
                 # =========================================================================
                 # Side-by-Side Comparison
@@ -1013,16 +1012,35 @@ if page == "Live Security Gateway":
                 if entities_list:
                     ent_rows = []
                     for e in entities_list:
+                        e_page = getattr(e, "page", "-")
+                        e_type = getattr(e, "type", getattr(e, "entity_type", "PII"))
+                        if hasattr(e_type, "value"):
+                            e_type = e_type.value
+                        e_risk = getattr(e, "risk", getattr(e, "risk_level", "HIGH"))
+                        if hasattr(e_risk, "value"):
+                            e_risk = e_risk.value
+                        e_src = getattr(e, "source", "unknown")
+                        if hasattr(e_src, "value"):
+                            e_src = e_src.value
+                        e_act = getattr(e, "action", "REDACT")
+                        if hasattr(e_act, "value"):
+                            e_act = e_act.value
+                        e_conf = getattr(e, "confidence", 1.0)
+                        e_hash = getattr(e, "value_hash", "") or ""
+
                         ent_rows.append({
-                            "Page": e.page,
-                            "Entity Type": e.type,
-                            "Risk Level": e.risk,
-                            "Confidence": f"{e.confidence:.2%}",
-                            "Detection Source": e.source,
-                            "Value Hash": e.value_hash[:16] + "...",
-                            "Action": e.action,
+                            "Page": str(e_page),
+                            "Entity Type": str(e_type),
+                            "Risk Level": str(e_risk),
+                            "Confidence": f"{float(e_conf):.2%}",
+                            "Detection Source": str(e_src),
+                            "Value Hash": (e_hash[:16] + "...") if e_hash else "-",
+                            "Action": str(e_act),
                         })
-                    st.dataframe(pd.DataFrame(ent_rows), use_container_width=True, hide_index=True)
+                    df_ent = pd.DataFrame(ent_rows)
+                    if "Page" in df_ent.columns:
+                        df_ent["Page"] = df_ent["Page"].astype(str)
+                    st.dataframe(df_ent, hide_index=True)
                 else:
                     st.info("No PII entities detected in this document.")
 
@@ -1050,7 +1068,10 @@ if page == "Live Security Gateway":
     if st.session_state["audit_log"]:
         # Display most recent 50 entries
         recent_log = st.session_state["audit_log"][-50:]
-        st.dataframe(pd.DataFrame(recent_log), use_container_width=True, hide_index=True)
+        df_audit = pd.DataFrame(recent_log)
+        if "PAGE" in df_audit.columns:
+            df_audit["PAGE"] = df_audit["PAGE"].astype(str)
+        st.dataframe(df_audit, hide_index=True)
     else:
         st.caption("No documents processed in this session yet. Upload a document above to generate audit records.")
 
