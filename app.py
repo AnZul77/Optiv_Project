@@ -362,18 +362,23 @@ if page == "Live Security Gateway":
                         color_cls = "highlight-red" if ent.risk == "CRITICAL" else "highlight-cyan"
                         highlight_map[raw_val] = f'<span class="{color_cls}">{html.escape(raw_val)}</span>'
 
-                        # Add to Session Audit Log
-                        st.session_state["audit_log"].append({
-                            "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "FILE": uploaded_file.name,
-                            "PAGE": ent.page,
-                            "TYPE": ent.type,
-                            "RISK": ent.risk,
-                            "SOURCE": ent.source,
-                            "CONFIDENCE": f"{ent.confidence:.2f}",
-                            "VALUE_HASH": ent.value_hash[:16] + "...",
-                            "ACTION": "REDACTED",
-                        })
+                        # Add to Session Audit Log (prevent duplicates on script rerun)
+                        if "audit_seen_keys" not in st.session_state:
+                            st.session_state["audit_seen_keys"] = set()
+                        entry_key = (uploaded_file.name, ent.page, ent.type, ent.value_hash[:16])
+                        if entry_key not in st.session_state["audit_seen_keys"]:
+                            st.session_state["audit_seen_keys"].add(entry_key)
+                            st.session_state["audit_log"].append({
+                                "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "FILE": uploaded_file.name,
+                                "PAGE": ent.page,
+                                "TYPE": ent.type,
+                                "RISK": ent.risk,
+                                "SOURCE": ent.source,
+                                "CONFIDENCE": f"{ent.confidence:.2f}",
+                                "VALUE_HASH": ent.value_hash[:16] + "...",
+                                "ACTION": "REDACTED",
+                            })
 
                 # Prepare Ingress Text & Egress Sanitized Text
                 pages_text = []
@@ -556,9 +561,42 @@ if page == "Live Security Gateway":
     st.write("---")
     st.markdown("### 🧾 Zero-PII Cryptographic Audit Log")
     if st.session_state["audit_log"]:
-        # Display most recent 50 entries
-        recent_log = st.session_state["audit_log"][-50:]
-        st.dataframe(pd.DataFrame(recent_log), hide_index=True)
+        audit_df = pd.DataFrame(st.session_state["audit_log"])
+        
+        c_filter1, c_filter2, c_filter3 = st.columns([2, 1, 1])
+        with c_filter1:
+            raw_pages = [p for p in audit_df["PAGE"].unique() if p is not None]
+            unique_pages = sorted(raw_pages)
+            page_options = ["All Pages"] + [f"Page {p}" for p in unique_pages]
+            selected_page = st.selectbox(
+                "Filter by Page",
+                options=page_options,
+                key="audit_page_filter"
+            )
+        with c_filter2:
+            st.write("")
+            st.download_button(
+                "📥 Export Full CSV",
+                data=audit_df.to_csv(index=False).encode("utf-8"),
+                file_name="zero_pii_audit_log.csv",
+                mime="text/csv",
+                key="download_audit_csv"
+            )
+        with c_filter3:
+            st.write("")
+            if st.button("🗑️ Reset Log", key="clear_audit_log_btn"):
+                st.session_state["audit_log"] = []
+                st.session_state["audit_seen_keys"] = set()
+                st.rerun()
+            
+        if selected_page != "All Pages":
+            page_num = int(selected_page.replace("Page ", ""))
+            filtered_df = audit_df[audit_df["PAGE"] == page_num]
+        else:
+            filtered_df = audit_df
+            
+        st.caption(f"Showing **{len(filtered_df)}** of **{len(audit_df)}** total cryptographic audit records (no raw PII stored):")
+        st.dataframe(filtered_df, hide_index=True)
     else:
         st.caption("No documents processed in this session yet. Upload a document above to generate audit records.")
 
