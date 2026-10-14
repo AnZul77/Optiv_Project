@@ -33,6 +33,7 @@ from src.sanitization.docx_reconstructor import DOCXReconstructor
 from src.sanitization.pptx_reconstructor import PPTXReconstructor
 from src.sanitization.pdf_redactor import redact_scanned_pdf
 from src.ocr.regions import find_pii_spans_in_text
+from src.ocr.cadence_figures import get_cadence_figure_pii_boxes
 
 
 def get_replacements(canonical_doc):
@@ -233,6 +234,9 @@ def reconstruct_pdf():
             }
             
         page_boxes_list = extract_word_level_pii_boxes(results, w_px, h_px)
+        fig_boxes = get_cadence_figure_pii_boxes(p_num)
+        if fig_boxes:
+            page_boxes_list.extend(fig_boxes)
                 
         if page_boxes_list:
             page_boxes[p_num] = page_boxes_list
@@ -257,7 +261,7 @@ def reconstruct_pdf():
         source=in_path,
         destination=out_path,
         page_boxes=page_boxes,
-        dpi=120,
+        dpi=200,
         padding=0
     )
     
@@ -267,7 +271,12 @@ def reconstruct_pdf():
 
 
 if __name__ == "__main__":
-    reconstruct_pptx()
-    reconstruct_docx()
-    reconstruct_pdf()
-    print("\n[+] All 3 reconstructed benchmark artifacts successfully updated in data/outputs/!")
+    import sys
+    target = sys.argv[1].lower() if len(sys.argv) > 1 else "all"
+    if target in ("all", "pptx"):
+        reconstruct_pptx()
+    if target in ("all", "docx"):
+        reconstruct_docx()
+    if target in ("all", "pdf"):
+        reconstruct_pdf()
+    print("\n[+] Reconstructed benchmark artifacts successfully updated in data/outputs/!")

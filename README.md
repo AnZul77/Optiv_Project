@@ -81,9 +81,9 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 2. Run Automated Test Suite (463 Tests Passing)
+### 2. Run Automated Test Suite (687 Tests Passing)
 
-Run the entire automated test suite (463 tests covering unit, integration, multimodal, and adversarial evasion vectors):
+Run the entire automated test suite (687 tests covering unit, integration, multimodal, OCR alignment, and adversarial evasion vectors):
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/ -v

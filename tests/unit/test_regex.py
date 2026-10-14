@@ -57,12 +57,13 @@ class TestSSNDetection:
         ssn_entities = [e for e in entities if e.entity_type == EntityType.SSN]
         assert len(ssn_entities) == 0
 
-    def test_ssn_invalid_area_900(self, engine):
-        """SSN with area 900+ should NOT match."""
+    def test_ssn_synthetic_area_900(self, engine):
+        """Synthetic SSN with area 900+ is matched for test and synthetic data support."""
         block = _make_block("SSN: 900-12-3456")
         entities = engine.detect(block)
         ssn_entities = [e for e in entities if e.entity_type == EntityType.SSN]
-        assert len(ssn_entities) == 0
+        assert len(ssn_entities) >= 1
+        assert ssn_entities[0].value == "900-12-3456"
 
     def test_multiple_ssns(self, engine):
         block = _make_block("SSNs: 123-45-6789 and 456-78-9012")

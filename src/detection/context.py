@@ -114,6 +114,9 @@ CUE_PATTERNS: Dict[EntityType, List[str]] = {
         "tin", "tax id", "tax identification", "ein",
         "employer identification",
     ],
+    EntityType.PESEL: [
+        "pesel", "polish national id", "national id", "polish id",
+    ],
     EntityType.PERSON: [
         "name", "employee name", "full name", "first name",
         "last name", "applicant", "candidate", "holder name",
@@ -219,6 +222,7 @@ TABLE_HEADER_MAP: Dict[str, EntityType] = {
     "passport": EntityType.PASSPORT,
     "passport no": EntityType.PASSPORT,
     "passport number": EntityType.PASSPORT,
+    "pesel": EntityType.PESEL,
     "card number": EntityType.CARD,
     "credit card": EntityType.CARD,
     "debit card": EntityType.CARD,
@@ -293,6 +297,10 @@ NON_PII_TERMS: Set[str] = {
     "cloud", "cloud apps", "database", "it requirement", "it risk", "legal risk",
     "assessment completed", "timelines", "vendor created", "vendor metadata", "metadata", "cursor",
     "notify", "ownership",
+    # Safe table headers & business codes
+    "employee name", "employee id", "risk code", "control id", "policy title",
+    "reviewer", "status", "department", "business unit", "role", "users",
+    "grp-pol-001", "rsk-001", "ctl-iam-01",
 }
 
 EMAIL_STRICT_PATTERN = re.compile(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b")

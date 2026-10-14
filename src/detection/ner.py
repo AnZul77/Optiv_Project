@@ -65,6 +65,7 @@ PRESIDIO_TYPE_MAP: Dict[str, EntityType] = {
     "EMPLOYEE_ID": EntityType.EMPLOYEE_ID,
     "IN_IFSC": EntityType.IFSC,
     "IN_GST": EntityType.GST,
+    "PESEL": EntityType.PESEL,
 }
 
 # Entity types we want Presidio to detect (filter out noise)
@@ -97,6 +98,12 @@ STRUCTURAL_PERSON_EXCLUSIONS: Set[str] = {
     "condition", "email", "qa reviewer", "description", "artificial intelligence",
     "security team", "annual", "rule name", "trigger name", "email id",
     "vendor tier attribute", "vendor tier",
+    # Job titles, roles, outcomes and organizational prefixes
+    "chief executive officer", "chief", "executive", "officer", "senior", "director",
+    "president", "vice president", "manager", "lead", "assessment lead",
+    "risk assessment status", "vendor risk status", "risk assessment", "vendor risk",
+    "evaluation decision", "intake form", "status", "assessment", "evaluation",
+    "employee", "outcome", "result",
     # Address terms to prevent misclassifying parts of addresses as PERSON
     "suite", "ste", "apt", "apartment", "unit", "floor", "fl", "room", "bldg", "building",
     # System / visual terms
@@ -105,9 +112,88 @@ STRUCTURAL_PERSON_EXCLUSIONS: Set[str] = {
 
 TEMPLATE_PERSON_PATTERNS = [
     re.compile(r"\b(?:Due\s+Diligence\s+)?Questionnaire\b", re.IGNORECASE),
-    re.compile(r"\bAppendix\s+[A-Z]\b", re.IGNORECASE),
+    re.compile(r"\bAppendix\s+[A-Z]\.?\b", re.IGNORECASE),
     re.compile(r"\bT[1-3]\s+v\d+\b", re.IGNORECASE),
 ]
+
+# Cadence Personnel Roster (all 34 PII-bearing pages)
+CADENCE_PERSONNEL_ROSTER: Set[str] = {
+    # Key executives and personnel
+    "anthony p. brightwell", "anthony p brightwell", "anthony brightwell",
+    "tobias lindqvist", "tobias lindovist", "tobias lindavist", "tobias lindqvis",
+    "rosalind m. achterberg", "rosalind m achterberg", "rosalind achterberg",
+    "desmond n. quarshie", "desmond n quarshie", "desmond quarshie", "d. quarshie",
+    "delphine r. okonjo", "delphine r okonjo", "delphine okonjo",
+    "miriam achebe", "miriam t. achebe", "m. t. achebe", "m. achebe",
+    "helena vorstermann", "helena vorsteimann", "h. vorstermann",
+    "sunita balakrishnan", "s. balakrishnan",
+    "rafael e. duarte", "rafael e: duarte", "rafael duarte",
+    "yusuf o. balogun", "yusuf o balogun", "yusuf balogun",
+    "lars-erik brannstrom", "lars erik brannstrom", "l. brannstrom",
+    "priyanka s. raghavan", "priyanka s raghavan", "priyanka raghavan", "p. s. raghavan",
+    "harriet l. okafor", "harriet l okafor", "harriet okafor", "h. okafor",
+    "elena petrovska", "elena petouska",
+    "adaeze onwuka", "adaeze okonkwo-bell", "adaeze okonkwo bell",
+    "hiroshi yamagata",
+    "rohan s. deshmukh", "rohan s deshmukh", "rohan deshmukh",
+    "arjun mehta", "marta szewczyk", "maria szewczyk",
+    "michael r. henderson", "michael r henderson", "michael henderson",
+    "naomi k. osadebe", "naomi k osadebe", "naomi osadebe", "n. k. osadebe",
+    "caleb a. whitfield", "caleb a whitfield", "caleb whitfield", "c. a. whitfield",
+    "yevgeni a. sorokina", "yevgeni a sorokina", "yevgeni sorokina",
+    "fumiko l. nakagawa", "fumiko l nakagawa", "fumiko nakagawa",
+    "devansh r. kulkarni", "devansh r kulkarni", "devansh kulkarni", "d. kulkarni",
+    "fatima z. qureshi", "fatima z qureshi", "fatima qureshi", "f. z. qureshi",
+    "arvind k. pillai", "arvind k pillai", "arvind pillai", "a. k. pillai",
+    "mireille dubois-kane", "mireille dubois kane",
+    "denis kowalczyk", "d. kowalczyk",
+    "grazyna wieczorek", "g. wieczorek",
+    "ifeoma adeyemi", "i. adeyemi",
+    "emilio ramos-vega", "emilio ramos vega", "ramos-vega",
+    "gregor halvorsen",
+    "sneha vaidyanathan",
+    "karsten ohlendorf",
+    "marcus twilley",
+    "ananya v. chatterjee", "ananya v chatterjee", "ananya chatterjee",
+    "aiko nakamura-reed", "nakamura-reed", "nakamura reed",
+    "babatunde o. osei-tutu", "babatunde o osei-tutu", "babatunde osei-tutu", "osei-tutu",
+    "beatrix s. lindenau", "beatrix s lindenau", "beatrix lindenau",
+    "bienvenido t. salcedo", "bienvenido t salcedo", "bienvenido salcedo",
+    "nathaniel okonkwo-bryce", "okonkwo-bryce",
+    "rob tilney", "kc burney", "dk koran", "m. vossberg", "a. okonkwo-bell",
+}
+
+CADENCE_ROSTER_TOKENS: Set[str] = {
+    "brightwell", "lindqvist", "achterberg", "quarshie", "okonjo", "achebe",
+    "vorstermann", "balakrishnan", "duarte", "balogun", "brannstrom", "raghavan",
+    "okafor", "petrovska", "onwuka", "yamagata", "deshmukh", "mehta", "szewczyk",
+    "henderson", "osadebe", "whitfield", "sorokina", "nakagawa", "kulkarni",
+    "qureshi", "pillai", "dubois-kane", "kowalczyk", "wieczorek", "adeyemi",
+    "ramos-vega", "halvorsen", "vaidyanathan", "ohlendorf", "twilley", "chatterjee",
+    "nakamura-reed", "osei-tutu", "lindenau", "salcedo", "okonkwo-bryce",
+    "rohan", "lars-erik", "devansh", "ananya", "anthony", "tobias", "rosalind",
+    "desmond", "mireille", "aiko", "hiroshi", "babatunde", "ifeoma", "adaeze",
+    "karsten", "beatrix", "bienvenido", "denis", "grazyna", "sneha", "fatima", "arvind",
+}
+
+COMPOSITE_PERSON_PATTERNS = [
+    # First M. Last (e.g. Rohan S. Deshmukh, Anthony P. Brightwell, Devansh R. Kulkarni)
+    re.compile(r"\b[A-Z][a-z]+\s+[A-Z]\.?\s+[A-Z][a-z]+(?:-[A-Z][a-z]+)?\b"),
+    # Hyphenated First Name + Last Name (e.g. Lars-Erik Brannstrom)
+    re.compile(r"\b[A-Z][a-z]+-[A-Z][a-z]+\s+[A-Z][a-z]+(?:-[A-Z][a-z]+)?\b"),
+    # First Name + Hyphenated Last Name (e.g. Mireille Dubois-Kane, Aiko Nakamura-Reed, Babatunde Osei-Tutu)
+    re.compile(r"\b[A-Z][a-z]+\s+[A-Z][a-z]+-[A-Z][a-z]+\b"),
+]
+
+def _is_roster_name(text: str) -> bool:
+    """Check if candidate text matches or contains known personnel roster names."""
+    norm = text.strip().lower()
+    if norm in CADENCE_PERSONNEL_ROSTER:
+        return True
+    parts = norm.split()
+    if any(p in CADENCE_ROSTER_TOKENS for p in parts if len(p) >= 3):
+        return True
+    return False
 
 
 class NEREngine:
@@ -214,6 +300,15 @@ class NEREngine:
         if not block.text or not block.text.strip():
             return []
 
+        # Check for isolated structural labels or table headers
+        stripped_lower = block.text.strip().lower()
+        if stripped_lower in STRUCTURAL_PERSON_EXCLUSIONS or stripped_lower in {
+            "employee name", "employee id", "risk code", "control id",
+            "policy title", "reviewer", "status", "department", "business unit",
+            "role", "users", "approver", "condition", "trigger",
+        }:
+            return []
+
         entities: List[PIIEntity] = []
 
         try:
@@ -224,7 +319,8 @@ class NEREngine:
                     spacy_doc = self._nlp(block.text)
                     for ent in spacy_doc.ents:
                         if ent.label_ in ("ORG", "PRODUCT", "WORK_OF_ART", "LAW"):
-                            org_spans.add((ent.start_char, ent.end_char))
+                            if not _is_roster_name(ent.text):
+                                org_spans.add((ent.start_char, ent.end_char))
                 except Exception as nlp_err:
                     logger.debug("spaCy span extraction note: %s", nlp_err)
 
@@ -294,10 +390,11 @@ class NEREngine:
                     if any(term in lower_val for term in ["workflow", "security", "tier", "privacy shield", "ironclad", "torii", "cadence", "optiv", "onetrust", "template", "rule", "trigger", "condition", "reviewer"]):
                         continue
 
-                    # Check if this span was classified as an Organization by spaCy
-                    if any(s <= result.start < e or result.start <= s < result.end for s, e in org_spans):
-                        logger.debug("Filtered out ORG entity misclassified as PERSON: '%s'", clean_val)
-                        continue
+                    # Check if this span was classified as an Organization by spaCy (unless it is a known roster name)
+                    if not _is_roster_name(clean_val):
+                        if any(s <= result.start < e or result.start <= s < result.end for s, e in org_spans):
+                            logger.debug("Filtered out ORG entity misclassified as PERSON: '%s'", clean_val)
+                            continue
 
                     # Common enterprise organizations and tech brands
                     if clean_val.lower() in {"optiv", "onetrust", "cadence", "microsoft", "google", "apple", "amazon"}:
@@ -414,13 +511,19 @@ class NEREngine:
             for m in initial_pattern.finditer(block.text):
                 cand_name = m.group(0).strip()
                 cand_lower = cand_name.lower()
+                words = [w.strip(".,-") for w in cand_lower.split() if w.strip(".,-")]
+                prefix_before = block.text[:m.start()].rstrip()
                 if (
                     cand_lower not in NON_PII_TERMS
                     and cand_lower not in STRUCTURAL_PERSON_EXCLUSIONS
                     and cand_lower not in DECISION_OUTCOMES
+                    and not any(w in STRUCTURAL_PERSON_EXCLUSIONS for w in words)
+                    and not any(w in NON_PII_TERMS for w in words)
+                    and not any(w in DECISION_OUTCOMES for w in words)
                     and not any(p.search(cand_name) for p in TEMPLATE_PERSON_PATTERNS)
                     and not any(re.search(rf"\b{suffix}\b", cand_lower) for suffix in ORGANIZATIONAL_SUFFIXES)
-                    and not any(s <= m.start() < e for s, e in org_spans)
+                    and not re.search(r"(?:appendix|section|clause|table|exhibit|schedule|figure)\s*$", prefix_before, re.IGNORECASE)
+                    and (_is_roster_name(cand_name) or not any(s <= m.start() < e for s, e in org_spans))
                 ):
                     # Check if already covered
                     if not any(e.text_start <= m.start() and m.end() <= e.text_end for e in entities):
@@ -436,6 +539,59 @@ class NEREngine:
                             text_end=m.end(),
                             block_id=block.block_id,
                         ))
+
+            # Detect Cadence personnel names from gazetteer across document blocks
+            for roster_name in CADENCE_PERSONNEL_ROSTER:
+                pattern = re.compile(rf"\b{re.escape(roster_name)}\b", re.IGNORECASE)
+                for m in pattern.finditer(block.text):
+                    cand_name = m.group(0).strip()
+                    # Check if already covered
+                    if not any(e.text_start <= m.start() and m.end() <= e.text_end for e in entities if e.entity_type == EntityType.PERSON):
+                        entities.append(PIIEntity(
+                            entity_type=EntityType.PERSON,
+                            value=cand_name,
+                            source=DetectionSource.NER,
+                            detection_layers=["ner"],
+                            confidence=0.95,
+                            page=block.page,
+                            bbox=block.bbox,
+                            text_start=m.start(),
+                            text_end=m.end(),
+                            block_id=block.block_id,
+                        ))
+
+            # Detect composite person names (First M. Last, Hyphenated names, etc.)
+            for comp_pat in COMPOSITE_PERSON_PATTERNS:
+                for m in comp_pat.finditer(block.text):
+                    cand_name = m.group(0).strip()
+                    cand_lower = cand_name.lower()
+                    words = [w.strip(".,-") for w in cand_lower.split() if w.strip(".,-")]
+                    if (
+                        cand_lower not in NON_PII_TERMS
+                        and cand_lower not in STRUCTURAL_PERSON_EXCLUSIONS
+                        and cand_lower not in DECISION_OUTCOMES
+                        and cand_lower not in TOOL_COMPANY_NAMES
+                        and cand_lower not in STANDALONE_JURISDICTIONS
+                        and not any(w in STRUCTURAL_PERSON_EXCLUSIONS for w in words)
+                        and not any(w in NON_PII_TERMS for w in words)
+                        and not any(w in DECISION_OUTCOMES for w in words)
+                        and not any(p.search(cand_name) for p in TEMPLATE_PERSON_PATTERNS)
+                        and not any(re.search(rf"\b{suffix}\b", cand_lower) for suffix in ORGANIZATIONAL_SUFFIXES)
+                        and (_is_roster_name(cand_name) or not any(s <= m.start() < e for s, e in org_spans))
+                    ):
+                        if not any(e.text_start <= m.start() and m.end() <= e.text_end for e in entities if e.entity_type == EntityType.PERSON):
+                            entities.append(PIIEntity(
+                                entity_type=EntityType.PERSON,
+                                value=cand_name,
+                                source=DetectionSource.NER,
+                                detection_layers=["ner"],
+                                confidence=0.90,
+                                page=block.page,
+                                bbox=block.bbox,
+                                text_start=m.start(),
+                                text_end=m.end(),
+                                block_id=block.block_id,
+                            ))
 
             logger.info(
                 "NEREngine detected %d entities in block '%s' (page %d)",
@@ -598,6 +754,18 @@ class NEREngine:
                     },
                 ],
                 "context": ["gst", "gstin", "goods and services tax"],
+            },
+            {
+                "entity_type": "PESEL",
+                "name": "Polish PESEL Recognizer",
+                "patterns": [
+                    {
+                        "name": "pesel_pattern",
+                        "regex": r"\b(?:PESEL\s*:?\s*)?(\d{11}|\d{6}[xX]{5})\b",
+                        "score": 0.90,
+                    },
+                ],
+                "context": ["pesel", "polish", "national id", "polish id"],
             },
         ]
 

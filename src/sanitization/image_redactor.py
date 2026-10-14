@@ -12,7 +12,7 @@ from src.ocr.regions import normalized_to_pixel
 def redact_image(
     image: Union[Image.Image, np.ndarray],
     boxes: Iterable[Sequence[float]],
-    padding: int = 4,
+    padding: int = 5,
     color: Tuple[int, int, int] = (0, 0, 0),
 ) -> Image.Image:
     """
@@ -57,7 +57,7 @@ def redact_image(
 def redact_image_bytes(
     image_bytes: bytes,
     boxes: Iterable[Sequence[float]],
-    padding: int = 4,
+    padding: int = 5,
 ) -> bytes:
     """Redact an image supplied as bytes and return sanitized PNG bytes."""
     import io
@@ -73,7 +73,7 @@ def redact_image_bytes(
 def burn_redactions_on_image(
     image: Union[Image.Image, np.ndarray, bytes, bytearray],
     boxes: Iterable[Sequence[float]],
-    padding: int = 4,
+    padding: int = 5,
     color: Tuple[int, int, int] = (0, 0, 0),
 ) -> Union[Image.Image, bytes]:
     """

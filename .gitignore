@@ -36,6 +36,7 @@ htmlcov/
 tmp/
 temp/
 scratch/
+.agents/
 *.tmp
 *.bak
 

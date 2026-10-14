@@ -65,6 +65,8 @@ class EntityType(str, Enum):
     AADHAAR = "AADHAAR"
     TAX_ID = "TAX_ID"
     NINO = "NINO"
+    PESEL = "PESEL"
+    NATIONAL_ID = "NATIONAL_ID"
 
     # Financial
     CARD = "CARD"
@@ -144,6 +146,8 @@ RISK_MAPPING: Dict[EntityType, RiskLevel] = {
     EntityType.AADHAAR: RiskLevel.CRITICAL,
     EntityType.CARD: RiskLevel.CRITICAL,
     EntityType.NINO: RiskLevel.CRITICAL,
+    EntityType.PESEL: RiskLevel.CRITICAL,
+    EntityType.NATIONAL_ID: RiskLevel.CRITICAL,
 
     # HIGH — Personal identifiers and contact information
     EntityType.PERSON: RiskLevel.HIGH,
