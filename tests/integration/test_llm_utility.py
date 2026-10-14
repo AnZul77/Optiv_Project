@@ -172,7 +172,7 @@ class TestLLMUtilitySuite:
         assert len(rep_dict["results"]) == 20
 
         md_output = report.to_markdown()
-        assert "# 🎯 Day 18 LLM Utility Evaluation Report" in md_output
+        assert "# 🎯 Enterprise LLM Utility & Security Evaluation Report" in md_output
         assert "100.0%" in md_output
         assert "0.0%" in md_output
         assert "OP-01" in md_output
