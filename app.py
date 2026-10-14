@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import html
+import hashlib
 from datetime import datetime
 from pathlib import Path
 
@@ -185,8 +186,7 @@ if page == "Live Security Gateway":
                     if not has_native:
                         is_scanned_pdf = True
                         from scripts.reconstruct_cadence_artifacts import find_pii_spans_in_text
-                        from src.schema.document import ExtractedBlock
-                        from src.schema.entities import EntityAnnotation
+                        from src.schema.document import ExtractedBlock, EntityAnnotation
                         import json
 
                         cache_path = "data/outputs/ocr_cache_policy_v6.json"
@@ -258,7 +258,7 @@ if page == "Live Security Gateway":
                                         entity_id=f"ocr_p{p_num}_{len(ocr_entities)}",
                                         type="PII",
                                         source="ocr",
-                                        value_hash="",
+                                        value_hash=hashlib.sha256(matched_val.encode("utf-8")).hexdigest(),
                                         page=p_num,
                                         bbox=norm_box,
                                         text_start=s_idx,
