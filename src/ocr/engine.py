@@ -51,8 +51,10 @@ class OCREngine:
             except (ImportError, Exception):
                 try:
                     import easyocr
+                    import torch
 
-                    self._ocr = easyocr.Reader([self.lang], gpu=False)
+                    use_gpu = torch.cuda.is_available()
+                    self._ocr = easyocr.Reader([self.lang], gpu=use_gpu)
                     self._engine_type = "EasyOCR"
                 except Exception as e:
                     raise ImportError(

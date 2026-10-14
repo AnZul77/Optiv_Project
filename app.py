@@ -261,6 +261,14 @@ with st.sidebar:
     st.markdown("🟢 **Detection**: 5-Layer Stack")
     st.markdown("🟢 **Policy Engine**: Config Enforced")
     st.markdown("🟢 **Readiness Gate**: Fail-Closed Active")
+    try:
+        import torch
+        if torch.cuda.is_available():
+            st.markdown(f"🟢 **Compute**: GPU ({torch.cuda.get_device_name(0)})")
+        else:
+            st.markdown("⚡ **Compute**: CPU Mode (PyTorch CPU build)")
+    except Exception:
+        st.markdown("⚡ **Compute**: CPU Mode")
     st.markdown("---")
     st.caption("Environment: Approved AI Gateway")
 
@@ -319,7 +327,9 @@ if page == "Live Security Gateway":
                         else:
                             try:
                                 import easyocr
-                                reader = easyocr.Reader(["en"], gpu=False)
+                                import torch
+                                use_gpu = torch.cuda.is_available()
+                                reader = easyocr.Reader(["en"], gpu=use_gpu)
                             except Exception:
                                 reader = None
 
@@ -857,7 +867,9 @@ if page == "Live Security Gateway":
                     img_boxes = []
                     try:
                         import easyocr
-                        reader = easyocr.Reader(["en"], gpu=False)
+                        import torch
+                        use_gpu = torch.cuda.is_available()
+                        reader = easyocr.Reader(["en"], gpu=use_gpu)
                         raw_img_res = reader.readtext(uploaded_file.getvalue())
                         from PIL import Image
                         import io

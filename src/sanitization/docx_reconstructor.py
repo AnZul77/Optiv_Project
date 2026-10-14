@@ -522,7 +522,9 @@ class DOCXReconstructor:
                         except Exception:
                             try:
                                 import easyocr
-                                lazy_ocr = easyocr.Reader(["en"], gpu=False)
+                                import torch
+                                use_gpu = torch.cuda.is_available()
+                                lazy_ocr = easyocr.Reader(["en"], gpu=use_gpu)
                             except Exception:
                                 lazy_ocr = None
 
