@@ -343,6 +343,14 @@ class PIIEntity:
         if src_val not in self.detection_layers:
             self.detection_layers.append(src_val)
 
+    @property
+    def type(self) -> str:
+        return self.entity_type.value if hasattr(self.entity_type, "value") else str(self.entity_type)
+
+    @property
+    def risk(self) -> str:
+        return self.risk_level.value if hasattr(self.risk_level, "value") else str(self.risk_level)
+
     def to_audit_dict(self) -> Dict:
         """
         Export entity as an audit-safe dictionary.
