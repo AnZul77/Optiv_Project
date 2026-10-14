@@ -15,13 +15,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies (OpenCV headless runtime, GLib, curl for healthcheck)
+# Install system dependencies (OpenCV headless runtime, GLib, curl for healthcheck, poppler, tesseract)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     libgl1 \
     libglib2.0-0 \
     tesseract-ocr \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -30,6 +31,9 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt && \
     python -m spacy download en_core_web_sm
 
+# Pre-cache EasyOCR CRAFT detection & CRNN recognition models to prevent runtime download delays
+RUN python -c "import easyocr; easyocr.Reader(['en'], gpu=False)"
+
 # Copy application source code and configurations
 COPY config/ ./config/
 COPY src/ ./src/
@@ -37,10 +41,11 @@ COPY scripts/ ./scripts/
 COPY docs/ ./docs/
 COPY data/ground_truth/ ./data/ground_truth/
 COPY data/raw/ ./data/raw/
+COPY data/outputs/ocr_cache_policy_v6.json ./data/outputs/ocr_cache_policy_v6.json
 COPY app.py .
 COPY README.md .
 
-# Ensure outputs directory exists
+# Ensure outputs and logs directory structure exists
 RUN mkdir -p data/outputs reports/logs
 
 # Expose Streamlit default web port

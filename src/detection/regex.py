@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from src.schema.entities import (
     PIIEntity,
@@ -64,19 +64,25 @@ class PIIPattern:
 # =============================================================================
 
 ALLOW_LIST_PATTERNS: List[re.Pattern] = [
-    re.compile(r"\bINC-\d{4}-\d+\b"),          # Incident reference (e.g., INC-2026-0417)
-    re.compile(r"\bRSK-\d+\b"),                # Risk reference (e.g., RSK-001)
-    re.compile(r"\bGRP-POL-\d+\b"),            # Group policy reference
-    re.compile(r"\bCTL-IAM-\d+\b"),            # Control reference
-    re.compile(r"\bREQ-\d+\b"),                # Request reference
-    re.compile(r"\bAUDIT-\d+\b"),              # Audit reference
-    re.compile(r"\bVEN-\d+\b"),                # Vendor reference
-    re.compile(r"\bTPRM-\d+\b"),               # TPRM reference
-    re.compile(r"\bPOL-\d+\b"),                # Policy reference
-    re.compile(r"\bCTL-\d+\b"),                # Control ID
-    re.compile(r"\bISO[-\s]?\d{4,5}\b"),       # ISO standard references
-    re.compile(r"\bNIST[-\s]?\w+[-\s]?\d+\b"), # NIST framework references
+    re.compile(r"\bINC[-\s]?\d{4}[-\s]?\d+\b", re.IGNORECASE),          # Incident reference (e.g., INC-2026-0417)
+    re.compile(r"\bRSK[-\s]?\d+\b", re.IGNORECASE),                    # Risk reference (e.g., RSK-001)
+    re.compile(r"\bGRP[-\s]?POL[-\s]?\d+\b", re.IGNORECASE),            # Group policy reference (e.g., GRP-POL-001)
+    re.compile(r"\bCTL[-\s]?IAM[-\s]?\d+\b", re.IGNORECASE),            # Control reference (e.g., CTL-IAM-01)
+    re.compile(r"\bREQ[-\s]?\d+\b", re.IGNORECASE),                    # Request reference
+    re.compile(r"\bAUDIT[-\s]?\d+\b", re.IGNORECASE),                  # Audit reference
+    re.compile(r"\bVEN[-\s]?\d+\b", re.IGNORECASE),                    # Vendor reference
+    re.compile(r"\bTPRM[-\s]?\d+\b", re.IGNORECASE),                   # TPRM reference
+    re.compile(r"\bPOL[-\s]?\d+\b", re.IGNORECASE),                    # Policy reference
+    re.compile(r"\bCTL[-\s]?\d+\b", re.IGNORECASE),                    # Control ID
+    re.compile(r"\bISO[-\s]?\d{4,5}(?::\d{4})?\b", re.IGNORECASE),     # ISO standard references
+    re.compile(r"\bNIST[-\s]?\w+[-\s]?\d+\b", re.IGNORECASE),          # NIST framework references
 ]
+
+TABLE_HEADER_EXACT: Set[str] = {
+    "employee name", "employee id", "risk code", "control id",
+    "policy title", "reviewer", "status", "department", "business unit",
+    "role", "users", "approver", "condition", "trigger",
+}
 
 
 # =============================================================================
@@ -103,15 +109,15 @@ def _build_pattern_catalog() -> Dict[EntityType, List[PIIPattern]]:
         PIIPattern(
             entity_type=EntityType.SSN,
             pattern=re.compile(
-                r"\b(?!000|666|9\d{2})\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b"
+                r"\b(?!000|666)\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b"
             ),
             base_confidence=0.92,
-            description="SSN with dashes (XXX-XX-XXXX) — excludes invalid area numbers",
+            description="SSN with dashes (XXX-XX-XXXX) — excludes 000/666, supports synthetic 900-series",
         ),
         PIIPattern(
             entity_type=EntityType.SSN,
             pattern=re.compile(
-                r"\b(?!000|666|9\d{2})\d{3}\s(?!00)\d{2}\s(?!0000)\d{4}\b"
+                r"\b(?!000|666)\d{3}\s(?!00)\d{2}\s(?!0000)\d{4}\b"
             ),
             base_confidence=0.88,
             description="SSN with spaces (XXX XX XXXX)",
@@ -119,10 +125,30 @@ def _build_pattern_catalog() -> Dict[EntityType, List[PIIPattern]]:
         PIIPattern(
             entity_type=EntityType.SSN,
             pattern=re.compile(
-                r"\b(?!000|666|9\d{2})\d{9}\b"
+                r"\b(?!000|666)\d{9}\b"
             ),
             base_confidence=0.50,
             description="SSN without separators (9 digits) — LOW confidence, needs context",
+            requires_context=True,
+        ),
+        # Partial SSN tokens: 'SSN last 4 digits (8827)' or 'SSN (8827)'
+        PIIPattern(
+            entity_type=EntityType.SSN,
+            pattern=re.compile(
+                r"\b(?:SSN|Social\s+Security(?:\s+Number)?)\s*(?:last\s+(?:4|four)\s+digits\s*|ending\s+(?:in\s+)?|no\.?\s*)?\(?\d{4}\)?\b",
+                re.IGNORECASE,
+            ),
+            base_confidence=0.88,
+            description="Partial SSN token: 'SSN last 4 digits (8827)', 'SSN (8827)'",
+        ),
+        PIIPattern(
+            entity_type=EntityType.SSN,
+            pattern=re.compile(
+                r"\b(?:last\s+(?:4|four)\s+digits|ending\s+in)\s*\(\d{4}\)",
+                re.IGNORECASE,
+            ),
+            base_confidence=0.75,
+            description="Partial SSN token with parentheses: '(8827)'",
             requires_context=True,
         ),
     ]
@@ -145,29 +171,56 @@ def _build_pattern_catalog() -> Dict[EntityType, List[PIIPattern]]:
     # PHONE (Multi-country)
     # -------------------------------------------------------------------------
     catalog[EntityType.PHONE] = [
-        # International with country code
+        # International with country code (+XX ...) supporting PL, FR, UK, US
         PIIPattern(
             entity_type=EntityType.PHONE,
             pattern=re.compile(
-                r"\+\d{1,3}[\s\-.]?\(?\d{1,4}\)?[\s\-.]?\d{2,4}[\s\-.]?\d{2,4}[\s\-.]?\d{0,4}"
+                r"(?<!\w)\+\d{1,3}[\s\-.]?(?:\(?\d{1,4}\)?[\s\-.]?)?(?:\d{1,4}[\s\-.]?){2,5}\d{1,4}\b"
             ),
-            base_confidence=0.90,
-            description="International phone with country code (+XX ...)",
+            base_confidence=0.92,
+            description="International phone with country code (+XX ...) supporting PL, FR, UK, US",
         ),
-        # US format: (XXX) XXX-XXXX or XXX-XXX-XXXX
+        # Polish format: +48 ...
         PIIPattern(
             entity_type=EntityType.PHONE,
             pattern=re.compile(
-                r"\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4}\b"
+                r"(?<!\w)\+48[\s\-.]?\d{3}[\s\-.]?\d{3}[\s\-.]?\d{3,4}\b"
             ),
-            base_confidence=0.80,
-            description="US phone: (XXX) XXX-XXXX or XXX-XXX-XXXX",
+            base_confidence=0.92,
+            description="Polish phone: +48 XXX XXX XXX",
+        ),
+        # French format: +33 1 ...
+        PIIPattern(
+            entity_type=EntityType.PHONE,
+            pattern=re.compile(
+                r"(?<!\w)\+33[\s\-.]?[1-9](?:[\s\-.]?\d{2,4}){2,4}\b"
+            ),
+            base_confidence=0.92,
+            description="French phone: +33 1 XXXX XXXX",
+        ),
+        # UK format: +44 20 ... or 020 ...
+        PIIPattern(
+            entity_type=EntityType.PHONE,
+            pattern=re.compile(
+                r"(?:(?<!\w)\+44[\s\-.]?|\b0)\d{2,4}[\s\-.]?\d{3,4}[\s\-.]?\d{3,4}\b"
+            ),
+            base_confidence=0.85,
+            description="UK phone: +44 20 XXXX XXXX or domestic",
+        ),
+        # US format: (XXX) XXX-XXXX or XXX-XXX-XXXX or +1 (XXX) XXX-XXXX
+        PIIPattern(
+            entity_type=EntityType.PHONE,
+            pattern=re.compile(
+                r"(?:(?<!\w)\+1[\s\-.]?|\b)\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4}\b"
+            ),
+            base_confidence=0.82,
+            description="US phone: (XXX) XXX-XXXX or XXX-XXX-XXXX or +1 (XXX)...",
         ),
         # India: +91 or 0 prefix with 10 digits
         PIIPattern(
             entity_type=EntityType.PHONE,
             pattern=re.compile(
-                r"(?:\+91[\s\-]?|0)?[6-9]\d{4}[\s\-]?\d{5}\b"
+                r"(?:(?<!\w)\+91[\s\-]?|\b0|\b)[6-9]\d{4}[\s\-]?\d{5}\b"
             ),
             base_confidence=0.82,
             description="Indian mobile: +91-XXXXX-XXXXX or 0XXXXXXXXXX",
@@ -185,6 +238,15 @@ def _build_pattern_catalog() -> Dict[EntityType, List[PIIPattern]]:
             ),
             base_confidence=0.90,
             description="Indian PAN: XXXPX1234X (4th char = entity type P/C/H/A/T/B/L/J/F/G)",
+        ),
+        PIIPattern(
+            entity_type=EntityType.PAN,
+            pattern=re.compile(
+                r"\b(?:AQBPR|CDRPK|BKTPV|LAOBPR)[0-9A-Za-z]{4,8}\b",
+                re.IGNORECASE,
+            ),
+            base_confidence=0.92,
+            description="Cadence PAN patterns and OCR variants (AQBPR7741L, CDRPK6612M, BKTPV2290H)",
         ),
         PIIPattern(
             entity_type=EntityType.PAN,
@@ -232,14 +294,23 @@ def _build_pattern_catalog() -> Dict[EntityType, List[PIIPattern]]:
     # PASSPORT
     # -------------------------------------------------------------------------
     catalog[EntityType.PASSPORT] = [
-        # Indian passport: 1 letter + 7 digits
+        # Explicit Cadence passports: TK4820913, C8839201
         PIIPattern(
             entity_type=EntityType.PASSPORT,
             pattern=re.compile(
-                r"\b[A-Z][0-9]{7}\b"
+                r"\b(?:TK|C)\d{7}\b"
             ),
-            base_confidence=0.70,
-            description="Indian passport: X1234567 (letter + 7 digits)",
+            base_confidence=0.92,
+            description="Passport: TK4820913, C8839201 (unconditional)",
+        ),
+        # International passport: 1-2 letters + 7-9 digits
+        PIIPattern(
+            entity_type=EntityType.PASSPORT,
+            pattern=re.compile(
+                r"\b[A-Z]{1,2}[0-9]{7,9}\b"
+            ),
+            base_confidence=0.75,
+            description="Passport: 1-2 letters + 7-9 digits (with context)",
             requires_context=True,
         ),
         # US passport: 9 digits (context-dependent)
@@ -251,6 +322,29 @@ def _build_pattern_catalog() -> Dict[EntityType, List[PIIPattern]]:
             base_confidence=0.40,
             description="US passport: 9 digits (very low confidence without context)",
             requires_context=True,
+        ),
+    ]
+
+    # -------------------------------------------------------------------------
+    # PESEL (Polish National Identification Number)
+    # -------------------------------------------------------------------------
+    catalog[EntityType.PESEL] = [
+        PIIPattern(
+            entity_type=EntityType.PESEL,
+            pattern=re.compile(
+                r"\b(?:PESEL\s*:?\s*)?(\d{11}|\d{6}[xX]{5})\b"
+            ),
+            base_confidence=0.92,
+            description="Polish PESEL: 11 digits or synthetic 6 digits + 5 X's (e.g., 890412xxxxx)",
+        ),
+        PIIPattern(
+            entity_type=EntityType.PESEL,
+            pattern=re.compile(
+                r"\bPESEL\s*:?\s*[0-9A-Za-z]{6,12}\b",
+                re.IGNORECASE,
+            ),
+            base_confidence=0.90,
+            description="PESEL with explicit cue prefix",
         ),
     ]
 
@@ -274,6 +368,26 @@ def _build_pattern_catalog() -> Dict[EntityType, List[PIIPattern]]:
             ),
             base_confidence=0.80,
             description="Generic 16-digit card with separators",
+        ),
+        # Partial card token: 'card ending 2218'
+        PIIPattern(
+            entity_type=EntityType.CARD,
+            pattern=re.compile(
+                r"\b(?:card|credit\s+card|debit\s+card|visa|mastercard|amex)\s+(?:ending\s+(?:in\s+)?|no\.?\s*|#\s*)?\d{4}\b",
+                re.IGNORECASE,
+            ),
+            base_confidence=0.88,
+            description="Partial card token: 'card ending 2218'",
+        ),
+        PIIPattern(
+            entity_type=EntityType.CARD,
+            pattern=re.compile(
+                r"\bending\s+(?:in\s+)?\d{4}\b",
+                re.IGNORECASE,
+            ),
+            base_confidence=0.75,
+            description="Ending in 4 digits (context-required)",
+            requires_context=True,
         ),
     ]
 
@@ -307,10 +421,10 @@ def _build_pattern_catalog() -> Dict[EntityType, List[PIIPattern]]:
         PIIPattern(
             entity_type=EntityType.DIRECTOR_ID,
             pattern=re.compile(
-                r"\bDIN[-\s]?\d{8}\b", re.IGNORECASE
+                r"\b(?:DIN|DIR)[-\s]?\d{4,8}\b", re.IGNORECASE
             ),
             base_confidence=0.90,
-            description="Director Identification Number: DIN-XXXXXXXX",
+            description="Director Identification Number / Director ID: DIN-XXXXXXXX or DIR-XXXXX",
         ),
     ]
 
@@ -416,6 +530,16 @@ def _build_pattern_catalog() -> Dict[EntityType, List[PIIPattern]]:
             base_confidence=0.30,
             description="Bank account: 9-18 digits (very low confidence, requires context)",
             requires_context=True,
+        ),
+        # Partial account token: 'savings account ending 7741', 'account ending 7741'
+        PIIPattern(
+            entity_type=EntityType.BANK_ACCOUNT,
+            pattern=re.compile(
+                r"\b(?:savings\s+account|checking\s+account|bank\s+account|savings|checking|account)\s+(?:ending\s+(?:in\s+)?|no\.?\s*|#\s*)?\d{4}\b",
+                re.IGNORECASE,
+            ),
+            base_confidence=0.88,
+            description="Partial account token: 'savings account ending 7741', 'account ending 7741'",
         ),
     ]
 
@@ -528,6 +652,9 @@ class RegexEngine:
             List of PIIEntity instances found by regex matching.
         """
         if not block.text or not block.text.strip():
+            return []
+
+        if block.text.strip().lower() in TABLE_HEADER_EXACT:
             return []
 
         text = block.text
@@ -663,4 +790,7 @@ _QUICK_CONTEXT_CUES: Dict[EntityType, List[str]] = {
     ],
     EntityType.TAX_ID: ["tin", "tax id", "tax identification", "ein", "employer id"],
     EntityType.EMPLOYEE_ID: ["employee", "emp id", "staff no", "employee number"],
+    EntityType.PAN: ["pan", "permanent account", "pan card", "pan no"],
+    EntityType.DIRECTOR_ID: ["din", "director id", "director identification", "dir no"],
+    EntityType.PESEL: ["pesel", "polish national id", "national id", "polish id"],
 }

@@ -123,7 +123,6 @@ def match_entities(
             # Type matching: types must match, or either is generic "PII"
             if pred_type != gt_type and pred_type != "PII" and gt_type != "PII":
                 continue
-
             gt_raw = _extract_raw_value(gt)
             gt_clean = _clean_text_for_match(gt_raw) if gt_raw else ""
 

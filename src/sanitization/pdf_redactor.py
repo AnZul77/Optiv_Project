@@ -65,7 +65,7 @@ def redact_scanned_pdf(
     destination: str | Path,
     page_boxes: Mapping[int, Sequence],
     dpi: int = 200,
-    padding: int = 0,
+    padding: int = 5,
     poppler_path: Optional[str] = None,
 ) -> Path:
     """

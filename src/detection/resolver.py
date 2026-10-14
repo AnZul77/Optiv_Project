@@ -26,6 +26,7 @@ Resolution Rules:
 
 from __future__ import annotations
 
+import re
 import logging
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
@@ -39,6 +40,21 @@ from src.schema.entities import (
 )
 
 logger = logging.getLogger(__name__)
+
+ALLOW_LIST_PATTERNS: List[re.Pattern] = [
+    re.compile(r"\bINC[-\s]?\d{4}[-\s]?\d+\b", re.IGNORECASE),
+    re.compile(r"\bRSK[-\s]?\d+\b", re.IGNORECASE),
+    re.compile(r"\bGRP[-\s]?POL[-\s]?\d+\b", re.IGNORECASE),
+    re.compile(r"\bCTL[-\s]?IAM[-\s]?\d+\b", re.IGNORECASE),
+    re.compile(r"\bISO[-\s]?\d{4,5}(?::\d{4})?\b", re.IGNORECASE),
+    re.compile(r"\bNIST[-\s]?\w+[-\s]?\d+\b", re.IGNORECASE),
+]
+
+TABLE_HEADERS: Set[str] = {
+    "employee name", "employee id", "risk code", "control id",
+    "policy title", "reviewer", "status", "department", "business unit",
+    "role", "users", "approver", "condition", "trigger",
+}
 
 
 # =============================================================================
@@ -60,8 +76,10 @@ TYPE_SPECIFICITY: Dict[EntityType, int] = {
     EntityType.PASSPORT: 2,
     EntityType.PAN: 3,
     EntityType.AADHAAR: 4,
-    EntityType.CARD: 5,
-    EntityType.NINO: 6,
+    EntityType.PESEL: 5,
+    EntityType.NATIONAL_ID: 5,
+    EntityType.CARD: 6,
+    EntityType.NINO: 7,
     # High-risk — moderately specific
     EntityType.EMAIL: 10,
     EntityType.PHONE: 11,
@@ -74,9 +92,9 @@ TYPE_SPECIFICITY: Dict[EntityType, int] = {
     EntityType.IFSC: 20,
     EntityType.GST: 21,
     EntityType.UPI: 22,
+    EntityType.ADDRESS: 25,
     # Broad / generic
     EntityType.PERSON: 30,
-    EntityType.ADDRESS: 31,
     EntityType.SIGNATURE: 40,
     EntityType.FACE_PHOTO: 41,
     EntityType.SENSITIVE_SCREENSHOT: 42,
@@ -150,6 +168,9 @@ class EntityResolver:
         dedup_count = len(resolved)
         resolved = self._deduplicate(resolved)
         dedup_count = dedup_count - len(resolved)
+
+        # Step 4: Filter out allow-listed business codes and table headers
+        resolved = [e for e in resolved if not self._is_allow_listed(e)]
 
         logger.info(
             "EntityResolver: %d input → %d resolved (%d merges, %d dedup removals)",
@@ -264,8 +285,13 @@ class EntityResolver:
             [e.entity_type for e in group]
         )
 
-        # Find the entity with highest confidence for base values
-        best_entity = max(group, key=lambda e: e.confidence)
+        # For PHONE entities, always preserve the full international span containing '+' prefix
+        plus_entities = [e for e in group if e.entity_type == EntityType.PHONE and "+" in e.value]
+        if best_type == EntityType.PHONE and plus_entities:
+            best_entity = max(plus_entities, key=lambda e: (len(e.value), e.confidence))
+        else:
+            # Find the entity with highest confidence for base values (break ties with longest value)
+            best_entity = max(group, key=lambda e: (e.confidence, len(e.value)))
 
         # Combine all detection layers
         all_layers: Set[str] = set()
@@ -281,8 +307,12 @@ class EntityResolver:
         min_start = min(e.text_start for e in group)
         max_end = max(e.text_end for e in group)
 
-        # Get the best value (from highest confidence entity)
-        best_value = best_entity.value
+        # Get the best value (prefer full international phone number or widest entity value)
+        if best_type == EntityType.PHONE and plus_entities:
+            best_value = best_entity.value
+        else:
+            widest_entity = next((e for e in group if e.text_start == min_start and e.text_end == max_end), None)
+            best_value = widest_entity.value if widest_entity else best_entity.value
 
         # Get first non-NA validator result
         from src.schema.entities import ValidatorStatus
@@ -386,3 +416,14 @@ class EntityResolver:
                 seen[key] = entity
 
         return list(seen.values())
+
+    def _is_allow_listed(self, entity: PIIEntity) -> bool:
+        """Check if an entity value is an allow-listed business code or table header."""
+        val = entity.value.strip()
+        val_lower = val.lower()
+        if val_lower in TABLE_HEADERS:
+            return True
+        for pat in ALLOW_LIST_PATTERNS:
+            if pat.fullmatch(val) or pat.fullmatch(val.strip("()[]\"'")):
+                return True
+        return False

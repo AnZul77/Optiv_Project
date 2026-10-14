@@ -20,12 +20,17 @@ from ..security.limits import (
 )
 
 # Canonical supported extensions
-SUPPORTED_EXTENSIONS = [".pdf", ".docx", ".pptx"]
+SUPPORTED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt", ".png", ".jpg", ".jpeg", ".bmp", ".tiff"]
 
 # Magic bytes signatures
 MAGIC_BYTES = {
     "pdf": b"%PDF-",
     "zip": b"PK\x03\x04",
+    "png": b"\x89PNG\r\n\x1a\n",
+    "jpg": b"\xff\xd8\xff",
+    "bmp": b"BM",
+    "tiff_le": b"II*\x00",
+    "tiff_be": b"MM\x00*",
 }
 
 
@@ -53,6 +58,14 @@ def inspect_magic_bytes(file_path: str) -> Optional[str]:
             return "pdf"
         elif header.startswith(MAGIC_BYTES["zip"]):
             return "zip"
+        elif header.startswith(MAGIC_BYTES["png"]):
+            return "png"
+        elif header.startswith(MAGIC_BYTES["jpg"]):
+            return "jpg"
+        elif header.startswith(MAGIC_BYTES["bmp"]):
+            return "bmp"
+        elif header.startswith(MAGIC_BYTES["tiff_le"]) or header.startswith(MAGIC_BYTES["tiff_be"]):
+            return "tiff"
     except Exception:
         return None
     return None
@@ -165,6 +178,39 @@ def validate_document(
                 error=f"Archive security inspection failed: {e}"
             )
         detected_type = ext
+    elif ext in [".png", ".jpg", ".jpeg", ".bmp", ".tiff"]:
+        # Verify valid image container
+        try:
+            from PIL import Image
+            with Image.open(file_path) as img:
+                img.verify()
+            detected_type = ext
+        except Exception as e:
+            return ValidationResult(
+                is_valid=False,
+                file_path=file_path,
+                file_size_bytes=file_size,
+                error=f"Corrupted or invalid image file: {e}"
+            )
+    elif ext == ".txt":
+        try:
+            with open(file_path, "rb") as f:
+                raw_chunk = f.read(4096)
+            if b"\x00" in raw_chunk:
+                return ValidationResult(
+                    is_valid=False,
+                    file_path=file_path,
+                    file_size_bytes=file_size,
+                    error="Binary data with null bytes detected in plain text file"
+                )
+            detected_type = ".txt"
+        except Exception as e:
+            return ValidationResult(
+                is_valid=False,
+                file_path=file_path,
+                file_size_bytes=file_size,
+                error=f"Failed to read text file: {e}"
+            )
     else:
         detected_type = ext
         warnings = []

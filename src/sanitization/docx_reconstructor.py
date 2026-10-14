@@ -337,17 +337,19 @@ class DOCXReconstructor:
 
             replaced_count = 0
             for rel_id, rel in doc.part.rels.items():
-                # Match by relationship_id or target_ref
+                # Match by relationship_id, target_ref, basename, or partname
                 new_bytes = None
+                target_partname = str(getattr(getattr(rel, "target_part", None), "partname", ""))
+                base_ref = os.path.basename(rel.target_ref)
+
                 if rel_id in image_replacements:
                     new_bytes = image_replacements[rel_id]
                 elif rel.target_ref in image_replacements:
                     new_bytes = image_replacements[rel.target_ref]
-                else:
-                    # Also match by basename (e.g. image1.png)
-                    base_ref = os.path.basename(rel.target_ref)
-                    if base_ref in image_replacements:
-                        new_bytes = image_replacements[base_ref]
+                elif base_ref in image_replacements:
+                    new_bytes = image_replacements[base_ref]
+                elif target_partname in image_replacements:
+                    new_bytes = image_replacements[target_partname]
 
                 if new_bytes is not None:
                     # Overwrite underlying image part blob
@@ -356,6 +358,23 @@ class DOCXReconstructor:
                         replaced_count += 1
                     except Exception as blob_err:
                         return False, f"Failed updating image blob for relation {rel_id}: {blob_err}"
+
+            # Also check any other parts in the document package
+            if hasattr(doc.part, "package") and hasattr(doc.part.package, "parts"):
+                for part in doc.part.package.parts:
+                    pname = str(getattr(part, "partname", ""))
+                    pbase = os.path.basename(pname)
+                    new_pbytes = None
+                    if pname in image_replacements:
+                        new_pbytes = image_replacements[pname]
+                    elif pbase in image_replacements:
+                        new_pbytes = image_replacements[pbase]
+                    if new_pbytes is not None and getattr(part, "_blob", None) is not None:
+                        try:
+                            part._blob = new_pbytes
+                            replaced_count += 1
+                        except Exception:
+                            pass
 
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
             doc.save(output_path)
@@ -371,3 +390,157 @@ class DOCXReconstructor:
 
         except Exception as e:
             return False, f"Failed to replace images in DOCX: {e}"
+
+    @staticmethod
+    def redact_images_in_document(
+        input_path: str,
+        output_path: str,
+        ocr_engine: Optional[Any] = None,
+        pre_extracted_ocr: Optional[Dict[str, Any]] = None,
+        padding: int = 4,
+        preserve_integrity: bool = True,
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Scan embedded DOCX images for PII using OCR and burn redaction boxes into images.
+
+        Args:
+            input_path: Path to the source DOCX.
+            output_path: Destination path for the reconstructed DOCX.
+            ocr_engine: Optional OCR engine or callable.
+            pre_extracted_ocr: Optional mapping of image key to pre-extracted OCR items.
+            padding: Pixel padding around redaction boxes.
+            preserve_integrity: If True, validates document integrity.
+
+        Returns:
+            Tuple of (success: bool, error_message: Optional[str]).
+        """
+        from .docx_image_redactor import DOCXImageRedactor
+
+        redactor = DOCXImageRedactor(ocr_engine=ocr_engine, padding=padding)
+        success, err, _ = redactor.redact_docx(
+            input_path=input_path,
+            output_path=output_path,
+            pre_extracted_ocr=pre_extracted_ocr,
+            preserve_integrity=preserve_integrity,
+        )
+        return success, err
+
+    @staticmethod
+    def redact_embedded_images(
+        docx_path: str,
+        ocr_engine: Optional[Any] = None,
+        ocr_cache: Optional[Dict[str, Any]] = None,
+        output_path: Optional[str] = None,
+        padding: int = 4,
+        preserve_integrity: bool = True,
+    ) -> Union[Dict[str, bytes], Tuple[bool, Optional[str]]]:
+        """
+        Inspect embedded images in the DOCX document (such as OneTrust screenshots).
+        For images that contain text, run OCR to find sensitive PII text regions,
+        and burn true opaque black pixel boxes onto those image regions.
+
+        If output_path is provided, writes the reconstructed DOCX with redacted images
+        and returns (success, error). If output_path is None, returns the mapping of
+        replacements.
+        """
+        if output_path is not None:
+            return DOCXReconstructor.redact_images_in_document(
+                input_path=docx_path,
+                output_path=output_path,
+                ocr_engine=ocr_engine,
+                pre_extracted_ocr=ocr_cache,
+                padding=padding,
+                preserve_integrity=preserve_integrity,
+            )
+
+        if not os.path.exists(docx_path):
+            return {}
+
+        import io
+        import hashlib
+        from PIL import Image
+        from src.ocr.regions import extract_word_level_pii_boxes
+        from src.sanitization.image_redactor import burn_redactions_on_image
+
+        try:
+            doc = Document(docx_path)
+        except Exception:
+            return {}
+
+        image_replacements: Dict[str, bytes] = {}
+
+        # Look for default or provided cache
+        cache_data = ocr_cache or {}
+        default_cache_path = "data/outputs/ocr_cache_docx_tprm.json"
+        if not cache_data and os.path.exists(default_cache_path):
+            try:
+                import json
+                with open(default_cache_path, "r", encoding="utf-8") as f:
+                    cache_data = json.load(f)
+            except Exception:
+                pass
+
+        lazy_ocr = ocr_engine
+
+        for rel_id, rel in doc.part.rels.items():
+            target_ref = getattr(rel, "target_ref", "")
+            if "image" not in target_ref.lower():
+                continue
+
+            ext = os.path.splitext(target_ref)[1].lower()
+            if ext not in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp"]:
+                continue
+
+            try:
+                blob = rel.target_part.blob
+                if not blob:
+                    continue
+
+                img_hash = hashlib.md5(blob).hexdigest()
+                base_ref = os.path.basename(target_ref)
+
+                with Image.open(io.BytesIO(blob)) as pil_img:
+                    w, h = pil_img.size
+
+                boxes = []
+                # Check cache first
+                cached_item = cache_data.get(img_hash) or cache_data.get(target_ref) or cache_data.get(base_ref)
+                if cached_item is not None:
+                    if isinstance(cached_item, dict) and "boxes" in cached_item:
+                        boxes = cached_item["boxes"]
+                    elif isinstance(cached_item, list):
+                        if cached_item and all(isinstance(v, (int, float)) for v in cached_item[0]):
+                            boxes = cached_item
+                        else:
+                            boxes = extract_word_level_pii_boxes(cached_item, w, h)
+                else:
+                    # Run OCR
+                    if lazy_ocr is None:
+                        try:
+                            from src.ocr.engine import OCREngine
+                            lazy_ocr = OCREngine()
+                        except Exception:
+                            try:
+                                import easyocr
+                                lazy_ocr = easyocr.Reader(["en"], gpu=False)
+                            except Exception:
+                                lazy_ocr = None
+
+                    if lazy_ocr is not None:
+                        if hasattr(lazy_ocr, "extract"):
+                            ocr_res = lazy_ocr.extract(blob)
+                            boxes = extract_word_level_pii_boxes(ocr_res, w, h)
+                        elif hasattr(lazy_ocr, "readtext"):
+                            raw_res = lazy_ocr.readtext(blob)
+                            boxes = extract_word_level_pii_boxes(raw_res, w, h)
+
+                if boxes:
+                    redacted_bytes = burn_redactions_on_image(blob, boxes, padding=4)
+                    image_replacements[rel_id] = redacted_bytes
+                    image_replacements[target_ref] = redacted_bytes
+                    image_replacements[base_ref] = redacted_bytes
+
+            except Exception:
+                continue
+
+        return image_replacements
