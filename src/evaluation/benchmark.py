@@ -180,17 +180,20 @@ def run_benchmark(
     logger.info("Calculating Benchmark Metrics across %d evaluation documents...", len(gt_records))
     report = generate_report(predicted_docs, ground_truth_docs)
 
-    print("\n" + "=" * 65)
-    print(" 🏆 PII SECURITY FIREWALL SCIENTIFIC BENCHMARK REPORT 🏆 ")
-    print("=" * 65)
+    try:
+        print("\n" + "=" * 65)
+        print(" 🏆 PII SECURITY FIREWALL SCIENTIFIC BENCHMARK REPORT 🏆 ")
+        print("=" * 65)
 
-    for metric, value in report.items():
-        if isinstance(value, float):
-            print(f"  {metric.replace('_', ' ').title():<32}: {value:.2%}")
-        else:
-            print(f"  {metric.replace('_', ' ').title():<32}: {value}")
+        for metric, value in report.items():
+            if isinstance(value, float):
+                print(f"  {metric.replace('_', ' ').title():<32}: {value:.2%}")
+            else:
+                print(f"  {metric.replace('_', ' ').title():<32}: {value}")
 
-    print("=" * 65 + "\n")
+        print("=" * 65 + "\n")
+    except OSError:
+        pass
     return report
 
 

@@ -173,7 +173,10 @@ def run_ablation_experiment(gt_dir: str, output_report_path: str):
         f.write(report_content)
         
     logging.info("Ablation report generated at %s", output_report_path)
-    print(report_content)
+    try:
+        print(report_content)
+    except OSError:
+        pass
 
 
 if __name__ == "__main__":
