@@ -1,40 +1,48 @@
-# ============================================================================
-# PII Security Firewall - Python Dependencies
-# ============================================================================
+# ==============================================================================
+# PII Security Firewall - Production Dependencies
+# Multimodal AI Security Gateway & Zero-Trust Data Boundary
+# Python Compatibility: 3.10 | 3.11
+# ==============================================================================
 
-# --- Document Ingestion & Reconstruction (Person 1 & Person 4) ---
-pymupdf>=1.24.0
-pypdf>=4.0.0
-pdfplumber>=0.10.0
-python-docx>=1.1.0
-python-pptx>=1.0.0
-lxml>=5.0.0
-Pillow>=10.0.0
-PyYAML>=6.0.0
+# --- Document Ingestion & Reconstruction ---
+pymupdf>=1.24.0                  # PyMuPDF (fitz): High-performance native PDF rendering & block extraction
+pypdf>=4.0.0                     # PDF stream manipulation & metadata stripping
+pdfplumber>=0.10.0               # PDF layout analysis, character streams & table extraction
+pdf2image>=1.16.0                # Secondary PDF rasterizer fallback (via Poppler)
+python-docx>=1.1.0               # Word OpenXML AST parsing (paragraphs, tables, text boxes, images)
+python-pptx>=1.0.0               # PowerPoint OpenXML parser (shapes, speaker notes, hidden slides)
+lxml>=5.0.0                      # Defused XML parsing, XPath traversal & XXE protection
+Pillow>=10.0.0                   # Raster image manipulation & pixel burning
+PyYAML>=6.0.0                    # Declarative YAML policy engine loader
 
-# --- OCR & Vision (Person 2) ---
-easyocr>=1.7.0
-opencv-python-headless>=4.8.0
-numpy>=1.24.0
-torch>=2.0.0
-torchvision>=0.15.0
-scikit-image>=0.20.0
+# --- Deep Learning, OCR & Computer Vision ---
+torch>=2.0.0                     # PyTorch CPU/CUDA backend for deep learning OCR models
+torchvision>=0.15.0              # Computer vision tensor operations & transforms
+easyocr>=1.7.0                   # Production OCR engine (CRAFT detection + CRNN recognition)
+opencv-python-headless>=4.8.0    # Headless OpenCV for binarization, resizing & pixel manipulation
+numpy>=1.24.0                    # Sub-pixel coordinate transformations & array math
+scipy>=1.10.0                    # Spatial geometry, distance matrices & IoU computations
+scikit-image>=0.20.0             # Image morphology, contrast enhancement & denoising
+shapely>=2.0.0                   # Polygon intersection & geometry management for OCR bounding boxes
+pyclipper>=1.3.0                 # Polygon clipping and dilation for text bounding masks
 
-# --- PII Detection & Context Engine (Person 3) ---
-presidio-analyzer>=2.2.0
-presidio-anonymizer>=2.2.0
-spacy>=3.7.0
-phonenumbers>=8.13.0
-python-dateutil>=2.8.0
+# --- PII Detection, Local NLP & Algorithmic Validators ---
+presidio-analyzer>=2.2.0         # Microsoft Presidio entity detection orchestrator
+presidio-anonymizer>=2.2.0       # Presidio token anonymization & replacement utilities
+spacy>=3.7.0                     # Local Named Entity Recognition (NER) pipeline
+phonenumbers>=8.13.0             # ITU-T E.164 international phone number parser & validator
+python-dateutil>=2.8.0           # Robust multi-format date-of-birth (DOB) validator
+tldextract>=5.0.0                # Domain extraction for email and URL validation
 
-# --- Verification, Security & Policy (Person 4) ---
-cryptography>=42.0.0
+# --- Cryptography, Security Controls & Schemas ---
+cryptography>=42.0.0             # Salted SHA-256 hash chaining & tamper-evident audit logging
+pydantic>=2.0.0                  # Canonical document & entity schema data contracts
 
-# --- UI & Benchmark Dashboard (Person 5) ---
-streamlit>=1.35.0
+# --- Enterprise Gateway Console & Telemetry ---
+streamlit>=1.35.0                # Interactive Security Gateway Dashboard
+pandas>=2.0.0                    # Tabular telemetry, risk breakdown & audit log dataframes
+altair>=5.0.0                    # Declarative statistical visualization for security metrics
 
-# --- Testing & Quality Assurance ---
-pytest>=8.0.0
-pytest-cov>=4.1.0
-pydantic>=2.0.0
-
+# --- Automated Testing, Verification & Quality Assurance ---
+pytest>=8.0.0                    # Comprehensive automated testing harness (688 tests)
+pytest-cov>=4.1.0                # Code coverage measurement & reporting

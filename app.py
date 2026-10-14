@@ -242,7 +242,7 @@ def render_downstream_llm_response_firewall(key_suffix: str = "main"):
                                 "End": f.end,
                                 "Intercept Action": "REDACTED & FLAGGED",
                             })
-                        st.dataframe(pd.DataFrame(finding_rows), use_container_width=True, hide_index=True)
+                        st.dataframe(pd.DataFrame(finding_rows), hide_index=True)
 
 
 # --- SIDEBAR NAVIGATION ---
@@ -517,18 +517,18 @@ if page == "Live Security Gateway":
                         # Add to Session Audit Log (prevent duplicates on script rerun)
                         if "audit_seen_keys" not in st.session_state:
                             st.session_state["audit_seen_keys"] = set()
-                        entry_key = (uploaded_file.name, ent.page, ent.type, ent.value_hash[:16])
+                        entry_key = (uploaded_file.name, str(ent.page), str(ent.type), str(ent.value_hash[:16]))
                         if entry_key not in st.session_state["audit_seen_keys"]:
                             st.session_state["audit_seen_keys"].add(entry_key)
                             st.session_state["audit_log"].append({
                                 "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                 "FILE": uploaded_file.name,
-                                "PAGE": ent.page,
-                                "TYPE": ent.type,
-                                "RISK": ent.risk,
-                                "SOURCE": ent.source,
+                                "PAGE": str(ent.page),
+                                "TYPE": str(ent.type),
+                                "RISK": str(ent.risk),
+                                "SOURCE": str(ent.source),
                                 "CONFIDENCE": f"{ent.confidence:.2f}",
-                                "VALUE_HASH": ent.value_hash[:16] + "...",
+                                "VALUE_HASH": str(ent.value_hash[:16]) + "...",
                                 "ACTION": "REDACTED",
                             })
 
@@ -753,7 +753,7 @@ if page == "Live Security Gateway":
                             "Policy Ceiling": gate.settings.get("max_allowed_residual_risk", "NONE"),
                             "Enforcement Mode": "FAIL-CLOSED / BLOCKED",
                         })
-                    st.dataframe(pd.DataFrame(reason_rows), use_container_width=True, hide_index=True)
+                    st.dataframe(pd.DataFrame(reason_rows), hide_index=True)
 
                 # =========================================================================
                 # Side-by-Side Comparison
@@ -1056,16 +1056,35 @@ if page == "Live Security Gateway":
                 if entities_list:
                     ent_rows = []
                     for e in entities_list:
+                        e_page = getattr(e, "page", "-")
+                        e_type = getattr(e, "type", getattr(e, "entity_type", "PII"))
+                        if hasattr(e_type, "value"):
+                            e_type = e_type.value
+                        e_risk = getattr(e, "risk", getattr(e, "risk_level", "HIGH"))
+                        if hasattr(e_risk, "value"):
+                            e_risk = e_risk.value
+                        e_src = getattr(e, "source", "unknown")
+                        if hasattr(e_src, "value"):
+                            e_src = e_src.value
+                        e_act = getattr(e, "action", "REDACT")
+                        if hasattr(e_act, "value"):
+                            e_act = e_act.value
+                        e_conf = getattr(e, "confidence", 1.0)
+                        e_hash = getattr(e, "value_hash", "") or ""
+
                         ent_rows.append({
-                            "Page": e.page,
-                            "Entity Type": e.type,
-                            "Risk Level": e.risk,
-                            "Confidence": f"{e.confidence:.2%}",
-                            "Detection Source": e.source,
-                            "Value Hash": e.value_hash[:16] + "...",
-                            "Action": e.action,
+                            "Page": str(e_page),
+                            "Entity Type": str(e_type),
+                            "Risk Level": str(e_risk),
+                            "Confidence": f"{float(e_conf):.2%}",
+                            "Detection Source": str(e_src),
+                            "Value Hash": (e_hash[:16] + "...") if e_hash else "-",
+                            "Action": str(e_act),
                         })
-                    st.dataframe(pd.DataFrame(ent_rows), hide_index=True)
+                    df_ent = pd.DataFrame(ent_rows)
+                    if "Page" in df_ent.columns:
+                        df_ent["Page"] = df_ent["Page"].astype(str)
+                    st.dataframe(df_ent, hide_index=True)
                 else:
                     st.info("No PII entities detected in this document.")
 
@@ -1092,11 +1111,18 @@ if page == "Live Security Gateway":
     st.markdown("### 🧾 Zero-PII Cryptographic Audit Log")
     if st.session_state["audit_log"]:
         audit_df = pd.DataFrame(st.session_state["audit_log"])
+        if "PAGE" in audit_df.columns:
+            audit_df["PAGE"] = audit_df["PAGE"].astype(str)
         
         c_filter1, c_filter2, c_filter3 = st.columns([2, 1, 1])
         with c_filter1:
-            raw_pages = [p for p in audit_df["PAGE"].unique() if p is not None]
-            unique_pages = sorted(raw_pages)
+            raw_pages = [p for p in audit_df["PAGE"].unique() if p is not None and str(p).strip() and str(p) != "-"]
+            def page_sort_key(p):
+                try:
+                    return int(p)
+                except ValueError:
+                    return 9999
+            unique_pages = sorted(raw_pages, key=page_sort_key)
             page_options = ["All Pages"] + [f"Page {p}" for p in unique_pages]
             selected_page = st.selectbox(
                 "Filter by Page",
@@ -1120,8 +1146,8 @@ if page == "Live Security Gateway":
                 st.rerun()
             
         if selected_page != "All Pages":
-            page_num = int(selected_page.replace("Page ", ""))
-            filtered_df = audit_df[audit_df["PAGE"] == page_num]
+            page_str = selected_page.replace("Page ", "")
+            filtered_df = audit_df[audit_df["PAGE"] == page_str]
         else:
             filtered_df = audit_df
             
