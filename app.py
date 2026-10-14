@@ -513,7 +513,7 @@ if page == "Live Security Gateway":
                             "Value Hash": e.value_hash[:16] + "...",
                             "Action": e.action,
                         })
-                    st.dataframe(pd.DataFrame(ent_rows), use_container_width=True, hide_index=True)
+                    st.dataframe(pd.DataFrame(ent_rows), hide_index=True)
                 else:
                     st.info("No PII entities detected in this document.")
 
@@ -537,7 +537,7 @@ if page == "Live Security Gateway":
     if st.session_state["audit_log"]:
         # Display most recent 50 entries
         recent_log = st.session_state["audit_log"][-50:]
-        st.dataframe(pd.DataFrame(recent_log), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(recent_log), hide_index=True)
     else:
         st.caption("No documents processed in this session yet. Upload a document above to generate audit records.")
 
@@ -567,19 +567,19 @@ elif page == "Benchmark Metrics":
 # --- PAGE: ADVERSARIAL TESTING ---
 elif page == "Adversarial Testing Suite":
     st.title("Adversarial Evasion Testing Suite")
-    st.markdown("Run the suite of adversarial attack vectors designed to attempt bypasses of the PII firewall (character spacing, zero-width characters, Cyrillic/homoglyphs, and rotated scans).")
+    st.markdown("Run the comprehensive suite of 15 adversarial attack vectors designed to attempt bypasses of the PII firewall (character spacing, zero-width characters, Cyrillic/homoglyphs, corrupt files, zip bombs, XXE injection, and leak injection).")
     
     if st.button("▶️ Run Adversarial Test Suite"):
-        with st.spinner("Executing Homoglyph, Character Spacing, and Zero-Width Space evasion tests..."):
+        with st.spinner("Executing Homoglyph, Character Spacing, Zero-Width Space, and Corrupt File tests..."):
             import subprocess
             result = subprocess.run(
-                [sys.executable, "-m", "pytest", "tests/adversarial/test_evasion.py", "-v"],
+                [sys.executable, "-m", "pytest", "tests/adversarial/", "-v"],
                 capture_output=True,
                 text=True
             )
             
             if result.returncode == 0:
-                st.success("✅ All Adversarial Attacks Successfully Defeated!")
+                st.success("✅ All 15 Adversarial Attacks Successfully Defeated!")
                 st.code(result.stdout, language="bash")
             else:
                 st.error("❌ Adversarial Vulnerability Detected!")
