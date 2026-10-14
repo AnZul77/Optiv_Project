@@ -175,6 +175,27 @@ if page == "Live Security Gateway":
                 summary = route_document(tmp_path)
                 canonical_doc = summary.get("document")
 
+                if canonical_doc is None:
+                    from src.schema.document import CanonicalDocument, ExtractedPage
+                    if file_ext == "pdf":
+                        import pymupdf as fitz
+                        _pdf = fitz.open(tmp_path)
+                        _num_pages = len(_pdf)
+                    else:
+                        _num_pages = 1
+                    canonical_doc = CanonicalDocument(
+                        doc_id=os.path.basename(tmp_path),
+                        source_path=tmp_path,
+                        filename=uploaded_file.name,
+                        file_type=f".{file_ext}",
+                        pages=_num_pages
+                    )
+                    for _p in range(1, _num_pages + 1):
+                        canonical_doc.pages_dict[_p] = ExtractedPage(page_num=_p)
+                    summary["document"] = canonical_doc
+                    summary["status"] = "EXTRACTED"
+                    summary["total_pages"] = _num_pages
+
                 # Handle Scanned PDF Multi-Page OCR across all pages
                 is_scanned_pdf = False
                 scanned_page_boxes = {}
