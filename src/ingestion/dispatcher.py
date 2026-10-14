@@ -166,7 +166,9 @@ class ImageHandler(BaseDocumentHandler):
             ocr_conf = 0.90
             try:
                 import easyocr
-                reader = self.ocr_engine or easyocr.Reader(["en"], gpu=False)
+                import torch
+                use_gpu = torch.cuda.is_available()
+                reader = self.ocr_engine or easyocr.Reader(["en"], gpu=use_gpu)
                 results = reader.readtext(img_bytes)
                 for (b, t, p) in results:
                     if t and str(t).strip():
