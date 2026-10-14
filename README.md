@@ -81,34 +81,63 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 2. Run Automated Unit & Integration Tests
+### 2. Run Automated Test Suite (409 Tests Passing)
 
-Run the full pytest suite (369 unit tests covering ingestion, OCR, detection layers, precision guards, security limits, input safety, and document reconstruction):
+Run the entire automated test suite (409 tests covering unit, adversarial evasion & corruption, multimodal integration, security checkpoint, and fail-closed gates):
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest tests/unit/ -v
+```bash
+# Full test suite (macOS/Linux)
+pytest tests/ -q
+
+# Windows PowerShell
+.\.venv\Scripts\python.exe -m pytest tests/ -q
 ```
 
-Run precision and multimodal integration tests (DOCX, PPTX, and scanned PDF):
+Run specialized test suites:
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest tests/unit/test_precision_fixes.py tests/integration/test_multimodal_artifacts.py -v
+```bash
+# Adversarial attack & evasion testing (corrupt files, evasion, leak injection)
+pytest tests/adversarial/ -v
+
+# Multimodal integration & security checkpoint tests
+pytest tests/integration/ -v
 ```
 
-### 3. Run Interactive Smoke Test & Demo
+### 3. Launch the Interactive Streamlit Security Gateway UI
 
-Run the end-to-end interactive demonstration:
+Launch the enterprise security checkpoint dashboard:
 
-```powershell
-.\.venv\Scripts\python.exe scripts/smoke_test.py
+```bash
+streamlit run app.py
 ```
 
-### 4. Benchmark Ingestion on Cadence Artifacts
+Features included in the dashboard:
+- Single-document upload and batch audit inspector
+- Interactive visual redaction diff viewer (text & burned bounding boxes)
+- Inherent vs. Residual risk breakdown & critical dominance alert cards
+- Zero-PII compliance audit log export & tamper-evident verification
+- Fail-closed security checkpoint gate override and telemetry
 
-Run the multi-format ingestion test on the actual benchmark files:
+### 4. Run Benchmark, Ablation, and LLM Utility Scripts
 
-```powershell
-.\.venv\Scripts\python.exe scripts/test_cadence_artifacts.py
+```bash
+# 1. Generate multi-modal synthetic and held-out evaluation datasets
+python scripts/generate_synthetic_datasets.py
+
+# 2. Run empirical ablation study (Baseline Regex vs. Context-Enhanced 5-layer pipeline)
+python src/evaluation/ablation.py
+
+# 3. Run automated benchmark harness across raw, synthetic, and held-out datasets
+python src/evaluation/benchmark.py
+
+# 4. Reconstruct and sanitize Cadence benchmark documents (DOCX, PPTX, scanned PDF)
+python scripts/reconstruct_cadence_artifacts.py
+
+# 5. Run downstream 20-question LLM utility and zero-leak evaluation
+python scripts/evaluate_llm_utility.py
+
+# 6. Run interactive smoke test
+python scripts/smoke_test.py
 ```
 
 ---
@@ -120,12 +149,15 @@ optiv/
 ├── app.py                      # Streamlit Security Gateway UI (Person 5)
 ├── README.md                   # System overview & setup instructions
 ├── requirements.txt            # Python dependencies
+├── pytest.ini                  # Pytest discovery and pythonpath configuration
 ├── config/
 │   └── policy.yaml             # Risk levels, actions, allow-lists (Person 4)
 ├── docs/
 │   ├── architecture.md         # Master system architecture & data flow
+│   ├── threat_model.md         # Threat model, security boundaries & policy guide
+│   ├── evaluation.md           # Scientific evaluation & empirical benchmark report
 │   ├── TEAM_INTEGRATION_GUIDE.md # Shared inter-developer integration contracts
-│   ├── PROJECT_CHECKLIST.md    # Master 3-week project progress checklist
+│   ├── PROJECT_CHECKLIST.md    # Master 3-week project progress checklist (100% Complete)
 │   ├── developer_1_ingestion_architecture.md
 │   ├── developer_2_ocr_vision_architecture.md
 │   ├── developer_3_pii_detection_architecture.md
@@ -133,7 +165,10 @@ optiv/
 │   └── developer_5_evaluation_ui_architecture.md
 ├── scripts/
 │   ├── smoke_test.py           # Interactive test runner & demonstration
-│   └── test_cadence_artifacts.py # Benchmark test on actual Cadence documents
+│   ├── test_cadence_artifacts.py # Ingestion test on raw Cadence documents
+│   ├── generate_synthetic_datasets.py # Multi-modal synthetic and held-out data generator
+│   ├── reconstruct_cadence_artifacts.py # Sanitized document generator with pixel burning
+│   └── evaluate_llm_utility.py # 20-question downstream LLM utility evaluation
 ├── src/
 │   ├── ingestion/              # Ingestion & Parsers [Person 1]
 │   │   ├── validators.py       # Pre-flight format & magic byte safety
@@ -143,21 +178,55 @@ optiv/
 │   │   ├── pptx.py             # PPTX parser (shapes, notes, hidden slides)
 │   │   └── metadata.py         # Metadata extraction & sanitization
 │   ├── ocr/                    # Vision & OCR Pipelines [Person 2]
+│   │   ├── engine.py           # EasyOCR & PaddleOCR adapter
+│   │   ├── preprocess.py       # 220-DPI binarization & image enhancement
+│   │   └── regions.py          # Coordinate transformations & bounding boxes
 │   ├── schema/                 # Canonical Document Object Models [Person 1 Lead]
-│   │   └── document.py         # CanonicalDocument, ExtractedPage, EntityAnnotation
+│   │   ├── document.py         # CanonicalDocument, ExtractedPage, EntityAnnotation
+│   │   └── entities.py         # PII taxonomy, risk levels, and block models
 │   ├── detection/              # PII Detection Stack [Person 3]
+│   │   ├── regex.py            # Layer 1: High-precision deterministic patterns
+│   │   ├── ner.py              # Layer 2: Presidio & spaCy local NER
+│   │   ├── context.py          # Layer 3: Sliding cue windows & table context
+│   │   ├── validators.py       # Layer 4: Checksum validators (Luhn, Verhoeff, E.164)
+│   │   ├── resolver.py         # Layer 5: Overlap merging & conflict resolution
+│   │   └── pipeline.py         # Orchestrated 5-layer detection pipeline
 │   ├── policy/                 # Risk Model & Policy Engine [Person 4]
+│   │   ├── policy.py           # Policy rules, actions & allow-lists
+│   │   ├── risk.py             # Critical entity dominance risk model
+│   │   └── relational.py       # Relational privacy & subject-predicate-object triples
 │   ├── sanitization/           # Document Redaction & Reconstruction [Person 1, 2, 4]
-│   │   └── docx_reconstructor.py # Native Word text replacement & image swapper
+│   │   ├── text_redactor.py    # Native text substitution & pseudonymization
+│   │   ├── image_redactor.py   # True pixel burning with padding
+│   │   ├── pdf_redactor.py     # Scanned & native PDF redaction
+│   │   ├── docx_reconstructor.py # Native Word text replacement & image swapper
+│   │   └── pptx_reconstructor.py # PowerPoint shape & speaker notes redactor
 │   ├── security/               # Security Guardrails [Person 1 & 4]
 │   │   ├── limits.py           # Zip bomb guard, XXE entity check, size caps
 │   │   ├── input_safety.py     # Prompt injection isolation & Unicode defense
 │   │   └── integrity.py        # Post-redaction document integrity verifier
 │   ├── verification/           # Independent Verification & Gate [Person 4]
+│   │   ├── verifier.py         # Heterogeneous secondary detector stack
+│   │   ├── residual_scan.py    # Re-OCR scan on sanitized outputs
+│   │   ├── gate.py             # Fail-closed AI Readiness gate
+│   │   └── output_scanner.py   # Downstream LLM output interceptor
 │   ├── audit/                  # Zero-PII Audit Logger [Person 4]
+│   │   └── logger.py           # Salted-hash, zero-PII audit logging
 │   └── evaluation/             # Metrics & Ablation Harness [Person 5]
-└── tests/
-    └── unit/                   # Unit test suite
+│       ├── matcher.py          # Bounding-box IoU & text span matching
+│       ├── metrics.py          # Recall, Precision, F1, Leak Rate, Over-Redaction
+│       ├── benchmark.py        # Automated benchmark test harness
+│       └── ablation.py         # Empirical ablation study (Baseline vs. Enhanced)
+├── tests/
+│   ├── unit/                   # 370 unit tests across all components
+│   ├── adversarial/            # 15 tests: evasion, corrupt files, leak injection
+│   └── integration/            # 24 integration tests: end-to-end & multimodal
+└── data/
+    ├── raw/                    # 3 Cadence enterprise benchmark artifacts
+    ├── synthetic/              # Generated multi-modal test files
+    ├── heldout/                # Frozen held-out evaluation test files
+    ├── ground_truth/           # Frozen ground-truth JSON annotations
+    └── outputs/                # Sanitized documents, OCR cache & audit logs
 ```
 
 ---

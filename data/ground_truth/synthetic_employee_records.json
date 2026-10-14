@@ -1,0 +1,112 @@
+{
+  "document_id": "synthetic_employee_records",
+  "filename": "synthetic_employee_records.docx",
+  "description": "Synthetic multi-column personnel audit document with international IDs, emails, cards, and operational non-PII terms.",
+  "ground_truth_entities": [
+    {
+      "type": "PERSON",
+      "page": 1,
+      "value_snippet": "Alexander Wright",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "EMAIL",
+      "page": 1,
+      "value_snippet": "alex.wright@globalcorp.net",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "SSN",
+      "page": 1,
+      "value_snippet": "382-91-4029",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PHONE",
+      "page": 1,
+      "value_snippet": "+1-555-839-2019",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "EMPLOYEE_ID",
+      "page": 1,
+      "value_snippet": "EMP-84920",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PERSON",
+      "page": 1,
+      "value_snippet": "Priya Sundaram",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "EMAIL",
+      "page": 1,
+      "value_snippet": "priya.sundaram@globalcorp.net",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PAN",
+      "page": 1,
+      "value_snippet": "ABCDE5678Z",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "CARD",
+      "page": 1,
+      "value_snippet": "4111222233334444",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PERSON",
+      "page": 1,
+      "value_snippet": "Desmond Vance",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "SSN",
+      "page": 1,
+      "value_snippet": "821-49-1029",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PERSON",
+      "page": 1,
+      "value_snippet": "Elena Petrovska",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PASSPORT",
+      "page": 1,
+      "value_snippet": "P8921049",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PERSON",
+      "page": 1,
+      "value_snippet": "Sunita Mehta",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "AADHAAR",
+      "page": 1,
+      "value_snippet": "4829 1048 2910",
+      "text_start": 0,
+      "text_end": 0
+    }
+  ]
+}

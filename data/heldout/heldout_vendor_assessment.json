@@ -1,0 +1,42 @@
+{
+  "document_id": "heldout_vendor_assessment",
+  "filename": "heldout_vendor_assessment.docx",
+  "description": "Frozen held-out vendor assessment with zero parameter tuning.",
+  "ground_truth_entities": [
+    {
+      "type": "PERSON",
+      "page": 1,
+      "value_snippet": "Kavita Ramanathan",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "EMAIL",
+      "page": 1,
+      "value_snippet": "kavita.ramanathan@clouddefense.com",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "SSN",
+      "page": 1,
+      "value_snippet": "194-82-9481",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PHONE",
+      "page": 1,
+      "value_snippet": "+1-555-302-9481",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PAN",
+      "page": 1,
+      "value_snippet": "AXPPR9481K",
+      "text_start": 0,
+      "text_end": 0
+    }
+  ]
+}

@@ -129,7 +129,10 @@ def check_file(file_path):
 
 
 def main():
-    test_docs_dir = os.path.join(os.path.dirname(__file__), "..", "test docs")
+    base_dir = os.path.join(os.path.dirname(__file__), "..")
+    test_docs_dir = os.path.join(base_dir, "test docs")
+    if not os.path.exists(test_docs_dir):
+        test_docs_dir = os.path.join(base_dir, "data", "raw")
     
     files = [
         os.path.join(test_docs_dir, "Cadence_Group_Risk_Management_Policy__v6.0.pdf"),

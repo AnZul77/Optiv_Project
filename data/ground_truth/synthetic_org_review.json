@@ -1,0 +1,35 @@
+{
+  "document_id": "synthetic_org_review",
+  "filename": "synthetic_org_review.pptx",
+  "description": "Synthetic presentation containing executive hierarchy cards, employee IDs, and speaker note covert channels.",
+  "ground_truth_entities": [
+    {
+      "type": "PERSON",
+      "page": 2,
+      "value_snippet": "Bartholomew Nkemdirim",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "EMAIL",
+      "page": 2,
+      "value_snippet": "bartholomew.n@cadence-group.org",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "EMPLOYEE_ID",
+      "page": 2,
+      "value_snippet": "EMP-10492",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PHONE",
+      "page": 2,
+      "value_snippet": "+1-555-912-3841",
+      "text_start": 0,
+      "text_end": 0
+    }
+  ]
+}

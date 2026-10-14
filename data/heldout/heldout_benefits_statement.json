@@ -1,0 +1,56 @@
+{
+  "document_id": "heldout_benefits_statement",
+  "filename": "heldout_benefits_statement.pdf",
+  "description": "Frozen held-out benefits statement with zero parameter tuning.",
+  "ground_truth_entities": [
+    {
+      "type": "PERSON",
+      "page": 1,
+      "value_snippet": "Gabriel O'Connor",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "EMPLOYEE_ID",
+      "page": 1,
+      "value_snippet": "EMP-55829",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "SSN",
+      "page": 1,
+      "value_snippet": "729-10-4829",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "DOB",
+      "page": 1,
+      "value_snippet": "05/19/1990",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PASSPORT",
+      "page": 1,
+      "value_snippet": "K9182374",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "EMAIL",
+      "page": 1,
+      "value_snippet": "gabriel.oc@securecorp.net",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "ADDRESS",
+      "page": 1,
+      "value_snippet": "742 Evergreen Terrace, Springfield, OR 97477",
+      "text_start": 0,
+      "text_end": 0
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "document_id": "synthetic_financial_audit",
+  "filename": "synthetic_financial_audit.pdf",
+  "description": "Multi-page synthetic financial document with banking, PAN, IFSC, SSN, DOB, and addresses.",
+  "ground_truth_entities": [
+    {
+      "type": "PERSON",
+      "page": 1,
+      "value_snippet": "Marcus Sterling",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "EMAIL",
+      "page": 1,
+      "value_snippet": "marcus.sterling@horizon-cap.com",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PHONE",
+      "page": 1,
+      "value_snippet": "+1-555-492-8172",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "ADDRESS",
+      "page": 1,
+      "value_snippet": "492 Oak Ridge Drive, Suite 200, Dallas, TX 75201",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PERSON",
+      "page": 2,
+      "value_snippet": "Yasmin El-Katib",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "DIRECTOR_ID",
+      "page": 2,
+      "value_snippet": "DIR-09281",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "PAN",
+      "page": 2,
+      "value_snippet": "BKTPA9921M",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "IFSC",
+      "page": 2,
+      "value_snippet": "HDFC0001829",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "BANK_ACCOUNT",
+      "page": 2,
+      "value_snippet": "981273948192",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "SSN",
+      "page": 2,
+      "value_snippet": "492-18-9201",
+      "text_start": 0,
+      "text_end": 0
+    },
+    {
+      "type": "DOB",
+      "page": 2,
+      "value_snippet": "08/23/1982",
+      "text_start": 0,
+      "text_end": 0
+    }
+  ]
+}
