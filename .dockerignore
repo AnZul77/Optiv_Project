@@ -16,6 +16,7 @@ temp
 scratch
 data/outputs/*
 !data/outputs/.gitkeep
+!data/outputs/ocr_cache_policy_v6.json
 reports/logs/*
 test docs
 .DS_Store

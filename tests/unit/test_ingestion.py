@@ -183,3 +183,33 @@ def test_canonical_document_entity_creation():
     assert len(entity.value_hash) == 64  # SHA-256 hash length
     assert "123-45-6789" not in entity.value_hash  # raw PII strictly omitted
     assert entity.risk == "CRITICAL"
+
+
+def test_text_and_image_ingestion(tmp_path):
+    from PIL import Image
+
+    # 1. Text file ingestion
+    txt_path = tmp_path / "sample.txt"
+    txt_path.write_text("Confidential note: Employee John Doe, SSN: 123-45-6789.", encoding="utf-8")
+
+    res_txt = validate_document(str(txt_path))
+    assert res_txt.is_valid is True
+    assert res_txt.detected_type == ".txt"
+
+    route_txt = route_document(str(txt_path))
+    assert route_txt["status"] == "EXTRACTED"
+    assert "John Doe" in route_txt["document"].get_full_text()
+
+    # 2. Image ingestion
+    img_path = tmp_path / "sample.png"
+    im = Image.new("RGB", (200, 100), color=(255, 255, 255))
+    im.save(str(img_path))
+
+    res_img = validate_document(str(img_path))
+    assert res_img.is_valid is True
+    assert res_img.detected_type == ".png"
+
+    route_img = route_document(str(img_path))
+    assert route_img["status"] == "EXTRACTED"
+    assert route_img["document"].file_type == ".png"
+    assert len(route_img["document"].get_all_images()) == 1

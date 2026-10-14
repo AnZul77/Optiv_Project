@@ -5,8 +5,12 @@ import os
 import sys
 import tempfile
 import html
+import json
+import logging
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger("pii_gateway")
 
 # Ensure src module is in path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -307,8 +311,8 @@ if page == "Live Security Gateway":
     st.title("Enterprise PII Security Gateway")
     
     # Document Upload
-    st.markdown("#### Upload enterprise documents to detect, sanitize, and verify against PII leaks")
-    uploaded_file = st.file_uploader("Supports PDF, DOCX, PPTX and plain text documents", type=["pdf", "docx", "pptx", "txt"], label_visibility="collapsed")
+    st.markdown("#### Upload enterprise documents or images to detect, sanitize, and verify against PII leaks")
+    uploaded_file = st.file_uploader("Supports PDF (native & scanned), Word (DOCX), PowerPoint (PPTX), Images (PNG, JPG, JPEG), and Plain Text (TXT)", type=["pdf", "docx", "pptx", "txt", "png", "jpg", "jpeg", "bmp"], label_visibility="collapsed")
     
     if uploaded_file:
         file_ext = uploaded_file.name.split('.')[-1].lower()
@@ -445,7 +449,7 @@ if page == "Live Security Gateway":
 
                 # Apply Policy Engine to filter actions (REDACT vs ALLOW)
                 from src.policy.policy import PolicyEngine
-                from src.verification.verifier import IndependentVerifier
+                from src.verification.verifier import IndependentVerifier, VerificationUnit
                 from src.verification.gate import AIReadinessGate, PASS, BLOCK
                 from src.security.input_safety import InputSafetyGuard
                 from types import SimpleNamespace
@@ -904,6 +908,28 @@ if page == "Live Security Gateway":
                     except Exception as e:
                         logger.error(f"Error generating sanitized PDF: {e}")
 
+                elif file_ext in ["png", "jpg", "jpeg", "bmp", "tiff"]:
+                    from src.sanitization.image_redactor import burn_redactions_on_image
+                    img_boxes = []
+                    try:
+                        import easyocr
+                        reader = easyocr.Reader(["en"], gpu=False)
+                        raw_img_res = reader.readtext(uploaded_file.getvalue())
+                        from PIL import Image
+                        import io
+                        with Image.open(io.BytesIO(uploaded_file.getvalue())) as pil_im:
+                            w_px, h_px = pil_im.size
+                        from src.ocr.regions import extract_word_level_pii_boxes
+                        img_boxes = extract_word_level_pii_boxes(raw_img_res, w_px, h_px, padding=2)
+                    except Exception:
+                        for ent in entities_list:
+                            if getattr(ent, "bbox", None):
+                                img_boxes.append(list(ent.bbox))
+
+                    sanitized_bytes = burn_redactions_on_image(uploaded_file.getvalue(), img_boxes, padding=2)
+                    download_mime = f"image/{'jpeg' if file_ext in ['jpg', 'jpeg'] else 'png'}"
+                    download_filename = f"sanitized_{uploaded_file.name}"
+
                 if sanitized_bytes is None:
                     sanitized_bytes = sanitized_full_text.encode("utf-8")
                     download_filename = f"sanitized_{Path(uploaded_file.name).stem}.txt"
@@ -945,6 +971,17 @@ if page == "Live Security Gateway":
                         doc_san.close()
                     except Exception as e:
                         st.caption(f"Visual rendering preview available in full viewer. ({e})")
+
+                elif file_ext in ["png", "jpg", "jpeg", "bmp", "tiff"] and sanitized_bytes:
+                    st.write("---")
+                    st.markdown("### 👁️ Visual Image Inspection (Original vs. Sanitized Image)")
+                    col_vis1, col_vis2 = st.columns(2)
+                    with col_vis1:
+                        st.caption("**Original Image**")
+                        st.image(uploaded_file.getvalue(), use_container_width=True)
+                    with col_vis2:
+                        st.caption("**Sanitized & Pixel-Burned Image**")
+                        st.image(sanitized_bytes, use_container_width=True)
 
                 st.write("---")
                 st.markdown("### 📥 Document Export & Sanitized Artifact Download")
