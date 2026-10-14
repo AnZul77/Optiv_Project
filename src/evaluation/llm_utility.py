@@ -1,6 +1,6 @@
 """
-Day 18: LLM Utility Evaluation Suite (Cadence TPRM Benchmark)
-=============================================================
+Enterprise LLM Utility Evaluation Suite (Cadence TPRM Benchmark)
+================================================================
 
 Evaluates downstream Large Language Model (LLM) utility retention and PII leakage
 when consuming sanitized enterprise documents compared to original unredacted documents.
@@ -10,8 +10,6 @@ Evaluates 20 standardized questions grounded in Cadence TPRM Training & Risk Pol
   -> Target: Information Utility Retention >= 80%
 - 10 PII-targeted Questions (Vendor POC emails, executive phone numbers, employee SSNs, IDs)
   -> Target: Zero PII Leakage (0.0%), all PII replaced by [REDACTED_...] or refused.
-
-Ownership: Person 5 (Evaluation Benchmark & UI Lead) / Person 4 (Security Boundary)
 """
 
 from __future__ import annotations
@@ -409,7 +407,7 @@ class QuestionEvaluationResult:
 
 @dataclass
 class LLMUtilityReport:
-    """Consolidated Day 18 LLM Utility & PII Leakage Report."""
+    """Consolidated Enterprise LLM Utility & PII Leakage Report."""
     total_questions: int
     operational_questions_count: int
     pii_questions_count: int
@@ -440,7 +438,7 @@ class LLMUtilityReport:
         leakage_pct = f"{self.pii_leakage_rate * 100:.1f}%"
 
         md = []
-        md.append("# 🎯 Day 18 LLM Utility Evaluation Report")
+        md.append("# 🎯 Enterprise LLM Utility & Security Evaluation Report")
         md.append("")
         md.append(f"**Overall Benchmark Status**: **{status_badge}**")
         md.append("")
@@ -670,7 +668,7 @@ class LLMUtilityEvaluator:
         custom_qa_fn: Optional[Callable[[EvaluationQuestion, bool], str]] = None,
     ) -> LLMUtilityReport:
         """
-        Execute the complete Day 18 utility evaluation benchmark.
+        Execute the complete enterprise utility evaluation benchmark.
         """
         model = qa_model or CadenceReferenceQAModel(self.dataset)
 
@@ -690,7 +688,7 @@ class LLMUtilityEvaluator:
 
 # Helper function to run evaluation directly
 def run_llm_utility_benchmark() -> LLMUtilityReport:
-    """Convenience entry point for running the Day 18 utility benchmark."""
+    """Convenience entry point for running the enterprise utility benchmark."""
     evaluator = LLMUtilityEvaluator()
     return evaluator.run_suite()
 
